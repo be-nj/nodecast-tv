@@ -43,14 +43,14 @@
           <span class="now-playing-icon">▶</span>
           <span class="now-playing-text" id="now-playing-text">Now Playing</span>
         </a>
-        <a href="#" class="nav-link active" data-page="home">
+        <a href="#" class="nav-link active" data-page="home" id="R0C0" data-arrowright="R0C1" data-arrowdown="S0R1C0">
           <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"
               class="icon">
               <path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z" />
             </svg></span>
           <span>Home</span>
         </a>
-        <a href="#" class="nav-link" data-page="live">
+        <a href="#" class="nav-link" data-page="live" id="R0C1" data-arrowright="R0C2" data-arrowleft="R0C0" data-arrowdown="channel-search">
           <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"
               class="icon">
               <path
@@ -58,14 +58,14 @@
             </svg></span>
           <span>Live TV</span>
         </a>
-        <a href="#" class="nav-link" data-page="guide">
+        <a href="#" class="nav-link" data-page="guide" id="R0C2" data-arrowright="R0C3" data-arrowleft="R0C1" data-arrowdown="epg-group-select">
           <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"
               class="icon">
               <path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z" />
             </svg></span>
           <span>TV Guide</span>
         </a>
-        <a href="#" class="nav-link" data-page="movies">
+        <a href="#" class="nav-link" data-page="movies" id="R0C3" data-arrowright="R0C4" data-arrowleft="R0C2" data-arrowdown="movies-source-select">
           <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"
               class="icon">
               <path
@@ -73,7 +73,7 @@
             </svg></span>
           <span>Movies</span>
         </a>
-        <a href="#" class="nav-link" data-page="series">
+        <a href="#" class="nav-link" data-page="series" id="R0C4" data-arrowright="R0C5" data-arrowleft="R0C3" data-arrowdown="series-source-select">
           <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"
               class="icon">
               <path
@@ -81,7 +81,7 @@
             </svg></span>
           <span>Series</span>
         </a>
-        <a href="#" class="nav-link" data-page="settings">
+        <a href="#" class="nav-link" data-page="settings" id="R0C5" data-arrowright="logout-btn" data-arrowleft="R0C4" data-arrowdown="S5R1C0">
           <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"
               class="icon">
               <path
@@ -126,10 +126,11 @@
             <div class="sidebar-header">
               <div class="sidebar-header-row">
                 <div class="search-wrapper">
-                  <input type="text" id="channel-search" placeholder="Search channels..." class="search-input">
+                  <input type="text" id="channel-search" placeholder="Search channels..." class="search-input" data-arrowright="sidebar-collapse-btn" data-arrowup="R0C1" data-arrowdown="source-select">
                   <button type="button" class="search-clear" title="Clear search">&times;</button>
                 </div>
                 <button id="sidebar-collapse-btn" class="btn btn-sm btn-ghost sidebar-collapse-btn"
+                  data-arrowleft="channel-search" data-arrowup="R0C1" data-arrowdown="toggle-groups"
                   title="Collapse sidebar">
                   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="icon">
                     <path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z" />
@@ -137,10 +138,10 @@
                 </button>
               </div>
               <div class="sidebar-controls">
-                <select id="source-select" class="source-select">
+                <select id="source-select" class="source-select" data-arrowright="toggle-groups" data-arrowup="channel-search" data-arrowdown="channel-list"
                   <option value="">All Sources</option>
                 </select>
-                <button id="toggle-groups" class="btn btn-sm btn-ghost" title="Expand/Collapse All">
+                <button id="toggle-groups" class="btn btn-sm btn-ghost" title="Expand/Collapse All" data-arrowleft="source-select" data-arrowup="sidebar-collapse-btn" data-arrowdown="channel-list"
                   <span><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="icon">
                       <path
                         d="M12 5.83L15.17 9l1.41-1.41L12 3 7.41 7.59 8.83 9 12 5.83zm0 12.34L8.83 15l-1.41 1.41L12 21l4.59-4.59L15.17 15 12 18.17z" />
@@ -149,7 +150,7 @@
 
               </div>
             </div>
-            <div id="channel-list" class="channel-list">
+            <div id="channel-list" class="channel-list" tabindex="0" data-arrowright="btn-play" data-arrowdown="channelNext" data-arrowup="channelPrev">
               <div class="empty-state">
                 <p>No channels loaded</p>
                 <p class="hint">Add a source in Settings to get started</p>
@@ -189,7 +190,7 @@
                 <!-- Bottom Bar: Controls -->
                 <div class="watch-bottom-bar">
                   <div class="watch-controls">
-                    <button class="watch-btn watch-btn-lg" id="btn-play" title="Play/Pause">
+                    <button class="watch-btn watch-btn-lg" id="btn-play" title="Play/Pause" data-arrowleft="channel-list" data-arrowright="btn-mute">
                       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"
                         class="icon icon-play">
                         <path d="M8 5v14l11-7z" />
@@ -202,7 +203,7 @@
 
                     <div class="watch-spacer"></div>
 
-                    <button class="watch-btn" id="btn-mute" title="Mute">
+                    <button class="watch-btn" id="btn-mute" title="Mute" data-arrowleft="btn-play" data-arrowright="player-volume">
                       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"
                         class="icon icon-vol">
                         <path
@@ -214,11 +215,11 @@
                           d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z" />
                       </svg>
                     </button>
-                    <input type="range" class="watch-volume" id="player-volume" min="0" max="100" value="80">
+                    <input type="range" class="watch-volume" id="player-volume" min="0" max="100" value="80" data-arrowleft="btn-mute" data-arrowright="player-captions-btn">
 
                     <!-- Captions Button -->
                     <div class="watch-captions-wrapper">
-                      <button class="watch-btn" id="player-captions-btn" title="Captions">
+                        <button class="watch-btn" id="player-captions-btn" title="Captions" data-arrowleft="player-volume" data-arrowright="btn-pip">
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="icon">
                           <path
                             d="M19 4H5c-1.11 0-2 .9-2 2v12c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm-8 7H9.5v-.5h-2v3h2V13H11v1c0 .55-.45 1-1 1H7c-.55 0-1-.45-1-1v-4c0-.55.45-1 1-1h3c.55 0 1 .45 1 1v1zm7 0h-1.5v-.5h-2v3h2V13H18v1c0 .55-.45 1-1 1h-3c-.55 0-1-.45-1-1v-4c0-.55.45-1 1-1h3c.55 0 1 .45 1 1v1z" />
@@ -232,20 +233,20 @@
                       </div>
                     </div>
 
-                    <button class="watch-btn" id="btn-pip" title="Picture-in-Picture">
+                    <button class="watch-btn" id="btn-pip" title="Picture-in-Picture" data-arrowleft="player-captions-btn" data-arrowright="btn-fullscreen">
                       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="icon">
                         <path
                           d="M19 7h-8v6h8V7zm2-4H3c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H3V5h18v14z" />
                       </svg>
                     </button>
-                    <button class="watch-btn" id="btn-fullscreen" title="Fullscreen">
+                    <button class="watch-btn" id="btn-fullscreen" title="Fullscreen" data-arrowleft="btn-pip" data-arrowright="btn-overflow">
                       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="icon">
                         <path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z" />
                       </svg>
                     </button>
                     <!-- Overflow Menu -->
                     <div class="player-overflow-wrapper">
-                      <button class="watch-btn" id="btn-overflow" title="More options">
+                        <button class="watch-btn" id="btn-overflow" title="More options" data-arrowleft="btn-fullscreen" data-arrowright="">
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="icon">
                           <path
                             d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z" />
@@ -292,16 +293,16 @@
         <div class="guide-header">
           <h2>TV Guide</h2>
           <div class="guide-controls">
-            <select id="epg-group-select" class="source-select">
+		  <select id="epg-group-select" class="source-select" data-arrowright="epg-search" data-arrowup="R0C2" data-arrowdown="S2R2C0">
               <option value="">All Groups</option>
             </select>
             <div class="search-wrapper">
-              <input type="text" id="epg-search" placeholder="Search channels..." class="search-input">
+		    <input type="text" id="epg-search" placeholder="Search channels..." class="search-input" data-arrowleft="epg-group-select" data-arrowright="guide-prev" data-arrowup="R0C2" data-arrowdown="S2R2C0">
               <button type="button" class="search-clear" title="Clear search">&times;</button>
             </div>
-            <button id="guide-prev" class="btn btn-ghost">&larr; Earlier</button>
-            <span id="guide-date" class="guide-date">Today</span>
-            <button id="guide-next" class="btn btn-ghost">Later &rarr;</button>
+            <button id="guide-prev" class="btn btn-ghost" data-arrowleft="epg-search" data-arrowright="guide-date" data-arrowup="R0C2" data-arrowdown="S2R2C0" >&larr; Earlier</button>
+            <span id="guide-date" class="guide-date" data-arrowleft="guide-prev" data-arrowright="guide-next" data-arrowup="R0C2" data-arrowdown="S2R2C0" tabindex="0">Today</span>
+            <button id="guide-next" class="btn btn-ghost" data-arrowleft="guide-date" data-arrowup="R0C2" data-arrowdown="S2R2C0" >Later &rarr;</button>
           </div>
         </div>
         <div id="epg-grid" class="epg-grid">
@@ -317,17 +318,17 @@
         <div class="movies-header">
           <h2>Movies</h2>
           <div class="movies-controls">
-            <select id="movies-source-select" class="source-select">
+            <select id="movies-source-select" class="source-select" data-arrowright="movies-category-select" data-arrowdown="S3R2C0" data-arrowup="R0C3">
               <option value="">All Sources</option>
             </select>
-            <select id="movies-category-select" class="source-select">
+            <select id="movies-category-select" class="source-select" data-arrowright="movies-search" data-arrowleft="movies-source-select" data-arrowdown="S3R2C0" data-arrowup="R0C3">
               <option value="">All Categories</option>
             </select>
             <div class="search-wrapper">
-              <input type="text" id="movies-search" placeholder="Search movies..." class="search-input">
+              <input type="text" id="movies-search" placeholder="Search movies..." class="search-input" data-arrowright="movies-favorites-btn" data-arrowleft="movies-category-select" data-arrowdown="S3R2C0" data-arrowup="R0C3">
               <button type="button" class="search-clear" title="Clear search">&times;</button>
             </div>
-            <button id="movies-favorites-btn" class="btn btn-icon btn-ghost" title="Show Favorites Only">
+            <button id="movies-favorites-btn" class="btn btn-icon btn-ghost" title="Show Favorites Only" data-arrowleft="movies-search" data-arrowdown="S3R2C0" data-arrowup="R0C3">
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="icon">
                 <path
                   d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
@@ -347,17 +348,17 @@
         <div class="series-header">
           <h2>Series</h2>
           <div class="series-controls">
-            <select id="series-source-select" class="source-select">
+            <select id="series-source-select" class="source-select" data-arrowright="series-category-select" data-arrowdown="S4R2C0" data-arrowup="R0C4"">
               <option value="">All Sources</option>
             </select>
-            <select id="series-category-select" class="source-select">
+            <select id="series-category-select" class="source-select" data-arrowright="series-search" data-arrowleft="series-source-select" data-arrowdown="S4R2C0" data-arrowup="R0C4">
               <option value="">All Categories</option>
             </select>
             <div class="search-wrapper">
-              <input type="text" id="series-search" placeholder="Search series..." class="search-input">
+              <input type="text" id="series-search" placeholder="Search series..." class="search-input" data-arrowright="series-favorites-btn" data-arrowleft="series-category-select" data-arrowdown="S4R2C0" data-arrowup="R0C4">
               <button type="button" class="search-clear" title="Clear search">&times;</button>
             </div>
-            <button id="series-favorites-btn" class="btn btn-icon btn-ghost" title="Show Favorites Only">
+            <button id="series-favorites-btn" class="btn btn-icon btn-ghost" title="Show Favorites Only" data-arrowleft="series-search" data-arrowdown="S4R2C0" data-arrowup="R0C4">
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="icon">
                 <path
                   d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
@@ -374,7 +375,7 @@
           </div>
           <!-- Series details panel (seasons/episodes) -->
           <div id="series-details" class="series-details hidden">
-            <button class="series-back-btn">← Back to Series</button>
+            <button class="series-back-btn" id="S4R3C0" data-arrowdown="S4R4C0">← Back to Series</button>
             <div class="series-details-header">
               <img id="series-poster" src="" alt="" class="series-poster">
               <div class="series-info">
@@ -394,11 +395,11 @@
 
           <!-- Tabs -->
           <div class="tabs">
-            <button class="tab active" data-tab="sources">Sources</button>
-            <button class="tab" data-tab="player">Player</button>
-            <button class="tab" data-tab="transcode">Transcoding</button>
-            <button class="tab" data-tab="content">Manage Content</button>
-            <button class="tab" data-tab="users" id="users-tab" style="display:none;">Users</button>
+            <button class="tab active" data-tab="sources" id="S5R1C0" data-arrowup="R0C5" data-arrowright="S5R1C1">Sources</button>
+            <button class="tab" data-tab="player" id="S5R1C1" data-arrowup="R0C5" data-arrowright="S5R1C2" data-arrowleft="S5R1C0">Player</button>
+            <button class="tab" data-tab="transcode" id="S5R1C2" data-arrowup="R0C5" data-arrowright="S5R1C3" data-arrowleft="S5R1C1">Transcoding</button>
+            <button class="tab" data-tab="content" id="S5R1C3" data-arrowup="R0C5" data-arrowright="users-tab" data-arrowleft="S5R1C2">Manage Content</button>
+            <button class="tab" data-tab="users" id="users-tab" style="display:none;" data-arrowup="R0C5" data-arrowleft="S5R1C3">Users</button>
           </div>
 
           <!-- Sources Tab -->
@@ -1115,13 +1116,129 @@
       const urlParams = new URLSearchParams(window.location.search);
       const token = urlParams.get('token');
       if (token) {
-        console.log('SSO Login successful, saving token...');
+        console.log('SSO eogin successful, saving token...');
         localStorage.setItem('authToken', token);
         // Clean URL without reloading
         const newUrl = window.location.pathname;
         window.history.replaceState({}, document.title, newUrl);
       }
     })();
+  </script>
+  <script>
+        // Handle d-pad button press
+        document.addEventListener('keydown', async (e) => {
+
+            //let currentFocus = event.target.id; // doesn't work when called from hosting app
+            //alert(currentFocus); 
+
+            let currentElement = document.activeElement;
+            let nextElementId  = null;
+
+            if ( (currentElement) && (currentElement.id) ) {
+                switch (event.key) {
+                    case "ArrowDown":
+                        nextElementId = currentElement.dataset.arrowdown;
+                        break;
+                    case "ArrowUp":
+                        nextElementId = currentElement.dataset.arrowup;
+                        break;
+                    case "ArrowRight":
+                        nextElementId = currentElement.dataset.arrowright;
+                        break;
+                    case "ArrowLeft":
+                        nextElementId = currentElement.dataset.arrowleft;
+                        break;
+                    case "GoBack":
+                        nextElementId = 'R0C0'; // go home
+                        break;
+                    case "enter":
+                    case "Enter":
+                        currentElement.click(); // make active
+                        currentElement.focus(); // focus
+                        e.preventDefault();
+                        break;
+                    //default:
+                        //alert(event.key);
+                        //break;
+                }
+            } else {
+                // currently focussed field is not visible any more
+                // work out where we are
+                if (this.app.currentPage === 'live') {
+                    let overlayHidden  = this.app.player.isOverlayHidden();
+                    let channelSidebar = document.getElementById('channel-sidebar');
+                    let menuHidden     = channelSidebar?.classList.contains('collapsed');
+                    switch (event.key) {
+                        case "ArrowDown":
+                            if (overlayHidden) {
+                                this.app.player.showOverlayIfHidden();
+                                nextElementId = "btn-play";
+                            } else {
+                                nextElementId = "channelNext";
+                            }
+                            break;
+                        case "ArrowUp":
+                            nextElementId = "channelPrev";
+                            break;
+                        case "ArrowRight":
+                            break;
+                        case "ArrowLeft":
+                            if (menuHidden) {
+                                nextElementId = "sidebar-expand-btn";
+                            } else {
+                                nextElementId = "channel-list";
+                            }
+                            break;
+                        case "GoBack":
+                            alert ('GoBack');
+                            nextElementId = 'R0C0'; // go home
+                            break;
+                    }
+                } else {
+                    // default = go home, reset focus, we're lost
+                    //alert ('go home');
+                    nextElementId = "R0C0";
+                }
+            }
+
+            if (nextElementId) {
+
+                if (nextElementId === "channelNext") {
+                    // Navigate to Live TV and select the channel
+                    //this.app.navigateTo('live');
+                    // Small delay to ensure page is ready
+                    setTimeout(() => {
+                        const channelList = this.app.channelList;
+                        if (channelList) {
+                            channelList.selectNextChannel();
+                        }
+                    }, 100);
+                } else if (nextElementId === "channelPrev") {
+                    // Navigate to Live TV and select the channel
+                    //this.app.navigateTo('live');
+                    // Small delay to ensure page is ready
+                    setTimeout(() => {
+                        const channelList = this.app.channelList;
+                        if (channelList) {
+                            channelList.selectPrevChannel();
+                        }
+                    }, 100);
+                } else {
+                    let nextElement = document.getElementById(nextElementId);
+                    if (nextElement) {
+                        if (nextElementId === 'channel-list') {
+                            const channelList = this.app.channelList;
+                            if (channelList) {
+                                channelList.selectFirstChannel();
+                            }
+                        }
+                        nextElement.focus();
+                    }
+                }
+
+            }
+
+        });
   </script>
 </body>
 

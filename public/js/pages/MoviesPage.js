@@ -258,9 +258,10 @@ class MoviesPage {
     }
 
     renderNextBatch() {
-        const start = this.currentBatch * this.batchSize;
-        const end = start + this.batchSize;
-        const batch = this.filteredMovies.slice(start, end);
+        const start   = this.currentBatch * this.batchSize;
+        const end     = start + this.batchSize;
+        const batch   = this.filteredMovies.slice(start, end);
+        let   current = start;
 
         console.log(`[Movies] Rendering batch ${this.currentBatch}: ${batch.length} cards (${start}-${end})`);
 
@@ -277,6 +278,15 @@ class MoviesPage {
             card.className = 'movie-card';
             card.dataset.movieId = movie.stream_id;
             card.dataset.sourceId = movie.sourceId;
+
+            card.tabIndex           = 0;
+            card.id                 = `S3R2C${current}`;
+            card.dataset.arrowright = `S3R2C${current+1}`;
+            card.dataset.arrowup    = 'movies-source-select';
+            if (current > 0) {
+                card.dataset.arrowleft  = `S3R2C${current-1}`;
+            }
+            current++;
 
             const poster = movie.stream_icon || movie.cover || '/img/placeholder.png';
             const year = movie.year || movie.releaseDate?.substring(0, 4) || '';

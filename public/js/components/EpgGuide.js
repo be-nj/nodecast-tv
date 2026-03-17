@@ -545,9 +545,17 @@ class EpgGuide {
         }
 
         // Add new visible rows
+        let prevRow = 'epg-search';
+        let currRow = 'S2R2C0';
+        let nextRow = 'S2R3C0';
+        let currIdx = 2;
         for (let i = startIndex; i <= endIndex; i++) {
             if (!this.visibleRows.has(i) && i < this.filteredChannels.length) {
-                const row = this.createChannelRow(i);
+                currIdx++;
+                let nextRow = `S2R${currIdx}C0`;
+                const row = this.createChannelRow(i, prevRow, currRow, nextRow);
+                prevRow = currRow;
+                currRow = nextRow;
                 this.visibleRows.set(i, row);
                 this.epgContainer.appendChild(row);
             }
@@ -557,7 +565,7 @@ class EpgGuide {
     /**
      * Create a channel row element for virtual scrolling
      */
-    createChannelRow(index) {
+    createChannelRow(index, prev, curr, next) {
         const { epgChannel, sourceChannel } = this.filteredChannels[index];
         const isFavorite = this.favorites.has(`${sourceChannel.sourceId}:${sourceChannel.id}`);
 
@@ -597,7 +605,7 @@ class EpgGuide {
             </button>
             <img class="epg-channel-logo" src="${logo}" 
                  alt="" onerror="this.onerror=null;this.src='/img/placeholder.png'">
-            <span class="epg-channel-name">${name}</span>
+            <span class="epg-channel-name" id="${curr}" data-arrowup="${prev}" data-arrowdown="${next}" tabindex="0">${name}</span>
             <div class="resize-handle"></div>
           </div>
           <div class="epg-programs">

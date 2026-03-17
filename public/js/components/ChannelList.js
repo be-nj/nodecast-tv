@@ -1073,6 +1073,23 @@ class ChannelList {
     /**
      * Select and play a channel
      */
+    async selectFirstChannel() {
+        if (this.currentChannel || !this.renderedChannels || this.renderedChannels.length === 0) return;
+        const nextChannel = this.renderedChannels[0];
+
+        this.selectChannel({
+            channelId: nextChannel.id,
+            sourceId: nextChannel.sourceId,
+            sourceType: nextChannel.sourceType,
+            streamId: nextChannel.streamId,
+            url: nextChannel.url,
+            renderId: nextChannel._renderId // Pass the unique render ID
+        });
+    }
+
+    /**
+     * Select and play a channel
+     */
     async selectChannel(dataset) {
         const channel = this.channels.find(c => c.id === dataset.channelId);
         if (!channel) return;

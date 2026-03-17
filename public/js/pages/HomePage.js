@@ -173,15 +173,18 @@ class HomePage {
             // 0. Load Favorite Channels (first section)
             await this.renderFavoriteChannels();
 
+            let row = 2;
             // 1. Load Watch History
             const history = await window.API.request('GET', '/history?limit=12');
             if (history && Array.isArray(history)) {
-                this.renderHistory(history);
+                if (this.renderHistory(history)) {
+                    row++;
+                }
             }
 
             // 2. Load Recent Items
-            this.renderRecentMovies();
-            this.renderRecentSeries();
+            this.renderRecentMovies(row++);
+            this.renderRecentSeries(row);
 
         } catch (err) {
             console.error('[Dashboard] Error loading data:', err);
@@ -220,7 +223,7 @@ class HomePage {
                     (String(ch.id) === String(fav.item_id) || String(ch.streamId) === String(fav.item_id))
                 );
                 if (channel) {
-                    channels.push({ ...channel, favoriteId: fav.id });
+                    channels.push({ ...channel, voriteId: fav.id });
                 }
             }
 
@@ -230,7 +233,11 @@ class HomePage {
             }
 
             // Render channel tiles
-            list.innerHTML = channels.map(ch => this.createChannelTile(ch)).join('');
+            //list.innerHTML = channels.map((ch, index) => this.createChannelTile(ch, index)).join('');
+            list.innerHTML = '';
+            for (let i = 0; i < channels.length; i++) {
+                list.innerHTML = list.innerHTML.concat (this.createChannelTile(channels[i], i));
+            }
 
             // Attach click handlers
             list.querySelectorAll('.channel-tile').forEach(tile => {
@@ -250,13 +257,20 @@ class HomePage {
         }
     }
 
-    createChannelTile(channel) {
+    createChannelTile(channel, index) {
         const logo = channel.tvgLogo || '/img/placeholder.png';
         const logoUrl = logo.startsWith('http') ? `/api/proxy/image?url=${encodeURIComponent(logo)}` : logo;
-        const name = channel.name || 'Unknown';
+        const name  = channel.name || 'Unknown';
+        //const col   = index.toString();
+        const left  = `S0R1C${index-1}`;
+        const id    = `S0R1C${index}`;
+        const right = `S0R1C${index+1}`;
+        const up    = 'R0C0';
+        const down  = 'S0R2C0';
+        //alert (id);
 
         return `
-            <div class="channel-tile" data-channel-id="${channel.id}" data-source-id="${channel.sourceId}">
+            <div class="channel-tile" data-channel-id="${channel.id}" data-source-id="${channel.sourceId}" id="${id}" data-arrowup="${up}" data-arrowdown="${down}" data-arrowright="${right}" data-arrowleft="${left}" tabindex="0">
                 <div class="tile-logo">
                     <img src="${logoUrl}" alt="${name}" loading="lazy" onerror="this.onerror=null;this.src='/img/placeholder.png'">
                 </div>
@@ -294,15 +308,19 @@ class HomePage {
         const list = document.getElementById('continue-watching-list');
         const section = document.getElementById('continue-watching-section');
 
-        if (!list || !section) return;
+        if (!list || !section) return false;
 
         if (items.length === 0) {
             section.classList.add('hidden');
-            return;
+            return false;
         }
 
         section.classList.remove('hidden');
-        list.innerHTML = items.map(item => this.createCard(item)).join('');
+        //list.innerHTML = items.map(item => this.createCard(item)).join('');
+        list.innerHTML = '';
+        for (let i = 0; i < item.length; i++) {
+            list.innerHTML = list.innerHTML.concat (this.createCard(items[i], i));
+        }
 
         // Attach click listeners
         list.querySelectorAll('.dashboard-card').forEach(card => {
@@ -323,6 +341,7 @@ class HomePage {
 
         // Update scroll arrows after content renders
         this.updateScrollArrows();
+        return true;
     }
 
     navigateToSeries(item) {
@@ -347,7 +366,7 @@ class HomePage {
         }, 100);
     }
 
-    async renderRecentMovies() {
+    async renderRecentMovies(row) {
         const list = document.getElementById('recent-movies-list');
         if (!list) return;
 
@@ -358,7 +377,11 @@ class HomePage {
                 return;
             }
 
-            list.innerHTML = movies.map(item => this.createRecentCard(item)).join('');
+            //list.innerHTML = movies.map(item => this.createRecentCard(item)).join('');
+            list.innerHTML = '';
+            for (let i = 0; i < movies.length; i++) {
+                list.innerHTML = list.innerHTML.concat (this.createRecentCard(movies[i], i, row));
+            }
 
             // Attach listeners
             list.querySelectorAll('.dashboard-card').forEach(card => {
@@ -376,7 +399,7 @@ class HomePage {
         }
     }
 
-    async renderRecentSeries() {
+    async renderRecentSeries(row) {
         const list = document.getElementById('recent-series-list');
         if (!list) return;
 
@@ -387,7 +410,11 @@ class HomePage {
                 return;
             }
 
-            list.innerHTML = series.map(item => this.createRecentCard(item)).join('');
+            //list.innerHTML = series.map(item => this.createRecentCard(item)).join('');
+            list.innerHTML = '';
+            for (let i = 0; i < series.length; i++) {
+                list.innerHTML = list.innerHTML.concat (this.createRecentCard(series[i], i, row));
+            }
 
             // Attach listeners
             list.querySelectorAll('.dashboard-card').forEach(card => {
@@ -405,24 +432,30 @@ class HomePage {
         }
     }
 
-    createCard(item) {
+    createCard(item, index) {
         const { data, progress, duration, item_id } = item;
         const type = item.item_type || item.type;
         const percent = Math.min(100, Math.round((progress / duration) * 100));
+        const left  = `S0R2C${index-1}`;
+        const id    = `S0R2C${index}`;
+        const right = `S0R2C${index+1}`;
+        const up    = 'S0R1C0';
+        const down  = 'S0R3C0';
 
         // Proxy the poster if it's an external URL
         const poster = data.poster || '/img/poster-placeholder.jpg';
         const posterUrl = poster.startsWith('http') ? `/api/proxy/image?url=${encodeURIComponent(poster)}` : poster;
 
         return `
-            <div class="dashboard-card" data-id="${item_id}" data-type="${type}">
+            <div class="dashboard-card" data-id="${item_id}" data-type="${type}"
+                    id="${id}" data-arrowup="${up}" data-arrowdown="${down}" data-arrowright="${right}" data-arrowleft="${left}" tabindex="0">
                 <div class="card-image">
                     <img src="${posterUrl}" alt="${data.title || item.name}" loading="lazy" onerror="this.onerror=null;this.src='/img/poster-placeholder.jpg'">
                     <div class="progress-bar-container">
                         <div class="progress-bar" style="width: ${percent}%"></div>
                     </div>
                     <div class="play-icon-overlay">
-                        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+                        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svge
                     </div>
                 </div>
                 <div class="card-info">
@@ -433,14 +466,21 @@ class HomePage {
         `;
     }
 
-    createRecentCard(item) {
+    createRecentCard(item, index, row) {
         const { data, item_id } = item;
         const type = item.type || item.item_type;
         const poster = item.stream_icon || data.poster || '/img/poster-placeholder.jpg';
         const posterUrl = poster.startsWith('http') ? `/api/proxy/image?url=${encodeURIComponent(poster)}` : poster;
 
+        const left  = `S0R${row}C${index-1}`;
+        const id    = `S0R${row}C${index}`;
+        const right = `S0R${row}C${index+1}`;
+        const up    = `S0R${row-1}C0`;
+        const down  = `S0R${row+1}C0`;
+
         return `
-            <div class="dashboard-card" data-id="${item_id}" data-type="${type}">
+            <div class="dashboard-card" data-id="${item_id}" data-type="${type}"
+                    id="${id}" data-arrowup="${up}" data-arrowdown="${down}" data-arrowright="${right}" data-arrowleft="${left}" tabindex="0">
                 <div class="card-image">
                     <img src="${posterUrl}" alt="${item.name}" loading="lazy" onerror="this.onerror=null;this.src='/img/poster-placeholder.jpg'">
                     <div class="play-icon-overlay">

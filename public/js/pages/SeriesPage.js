@@ -270,9 +270,10 @@ class SeriesPage {
     }
 
     renderNextBatch() {
-        const start = this.currentBatch * this.batchSize;
-        const end = start + this.batchSize;
-        const batch = this.filteredSeries.slice(start, end);
+        const start   = this.currentBatch * this.batchSize;
+        const end     = start + this.batchSize;
+        const batch   = this.filteredSeries.slice(start, end);
+        let   current = start;
 
         if (batch.length === 0) {
             const loader = this.container.querySelector('.series-loader');
@@ -287,6 +288,15 @@ class SeriesPage {
             card.className = 'series-card';
             card.dataset.seriesId = series.series_id;
             card.dataset.sourceId = series.sourceId;
+
+            card.tabIndex           = 0;
+            card.id                 = `S4R2C${current}`;
+            card.dataset.arrowright = `S4R2C${current+1}`;
+            card.dataset.arrowup    = 'series-source-select';
+            if (current > 0) {
+                card.dataset.arrowleft  = `S4R2C${current-1}`;
+            }
+            current++;
 
             const poster = series.cover || '/img/placeholder.png';
             const year = series.year || series.releaseDate?.substring(0, 4) || '';
@@ -349,6 +359,12 @@ class SeriesPage {
         this.container.classList.add('hidden');
         this.detailsPanel.classList.remove('hidden');
 
+        // focus on "Back to Series"
+        let nextElement = document.getElementById("S4R3C0");
+        if (nextElement) {
+            nextElement.focus();
+        }
+
         // Set header info
         document.getElementById('series-poster').src = series.cover || '/img/placeholder.png';
         document.getElementById('series-title').textContent = series.name;
@@ -370,11 +386,31 @@ class SeriesPage {
             this.currentSeriesInfo = info;
 
             // Render seasons and episodes
-            let html = '';
+            let html  = '';
+            let index = 0;
             const seasons = Object.keys(info.episodes).sort((a, b) => parseInt(a) - parseInt(b));
-
+            
             seasons.forEach(seasonNum => {
-                const episodes = info.episodes[seasonNum];
+                const episodes     = info.episodes[seasonNum];
+                let   episodesHtml = '';
+
+                for (let i = 0; i < episodes.length; i++) {
+                    const ep     = episodes[i];
+                    const up    = `S4R${index+3}C0`;
+                    const id    = `S4R${index+4}C0`;
+                    const down  = `S4R${index+5}C0`;
+
+                    episodesHtml = episodesHtml.concat (`
+                            <div class="episode-item" data-episode-id="${ep.id}" data-source-id="${series.sourceId}" data-container="${ep.container_extension || 'mp4'}"
+                                    id="${id}" data-arrowup="${up}" data-arrowdown="${down}" tabindex="0">
+                                <span class="episode-number">E${ep.episode_num}</span>
+                                <span class="episode-title">${ep.title || `Episode ${ep.episode_num}`}</span>
+                                <span class="episode-duration">${ep.duration || ''}</span>
+                            </div>
+                        `);
+                    index++;
+                }
+
                 html += `
                 <div class="season-group">
                     <div class="season-header">
@@ -382,13 +418,7 @@ class SeriesPage {
                         <span class="season-name">Season ${seasonNum} (${episodes.length} episodes)</span>
                     </div>
                     <div class="episode-list">
-                        ${episodes.map(ep => `
-                            <div class="episode-item" data-episode-id="${ep.id}" data-source-id="${series.sourceId}" data-container="${ep.container_extension || 'mp4'}">
-                                <span class="episode-number">E${ep.episode_num}</span>
-                                <span class="episode-title">${ep.title || `Episode ${ep.episode_num}`}</span>
-                                <span class="episode-duration">${ep.duration || ''}</span>
-                            </div>
-                        `).join('')}
+                        ${episodesHtml}
                     </div>
                 </div>`;
             });

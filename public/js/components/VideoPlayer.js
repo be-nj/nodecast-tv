@@ -146,6 +146,27 @@ class VideoPlayer {
         };
     }
 
+    isOverlayHidden() {
+        return (this.controlsOverlay.classList.contains('hidden'));
+    }
+
+    showOverlayIfHidden() {
+        if (this.controlsOverlay.classList.contains('hidden')) {
+            //alert ('mousemove');
+            // simulate mouse move
+            const mouseMoveEvent = new MouseEvent('mousemove', {
+                view: window,
+                bubbles: true,
+                cancelable: true,
+                clientX: 1,
+                clientY: 1
+            });
+            this.container.dispatchEvent(mouseMoveEvent);
+            return true;
+        }
+        return false;
+    }
+
     /**
      * Initialize custom video controls for mobile
      */
@@ -382,7 +403,9 @@ class VideoPlayer {
         const resetOverlayTimer = () => {
             clearTimeout(overlayTimeout);
             if (!this.video.paused) {
-                overlayTimeout = setTimeout(hideOverlay, 3000);
+                // increased timeout to allow user to button their way across the controls
+                //overlayTimeout = setTimeout(hideOverlay, 3000);
+                overlayTimeout = setTimeout(hideOverlay, 20000);
             }
         };
 
@@ -1472,6 +1495,7 @@ class VideoPlayer {
                 e.preventDefault();
                 this.video.muted = !this.video.muted;
                 break;
+                /*
             case 'ArrowUp':
                 if (!this.settings.arrowKeysChangeChannel) {
                     e.preventDefault();
@@ -1500,6 +1524,7 @@ class VideoPlayer {
                     this.video.volume = Math.min(1, this.video.volume + 0.1);
                 }
                 break;
+                */
             case 'PageUp':
             case 'ChannelUp':
                 e.preventDefault();

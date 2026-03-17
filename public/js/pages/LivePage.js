@@ -72,23 +72,22 @@ class LivePage {
 
     handleKeydown(e) {
         if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
-
+/* TBD - disabled this functionalty to work with D-PAD
         switch (e.key) {
             case 'ArrowUp':
                 // Check if player handles arrows for volume
                 if (this.app.player && !this.app.player.settings.arrowKeysChangeChannel) return;
-
                 e.preventDefault();
                 this.app.channelList.selectPrevChannel();
                 break;
             case 'ArrowDown':
                 // Check if player handles arrows for volume
                 if (this.app.player && !this.app.player.settings.arrowKeysChangeChannel) return;
-
                 e.preventDefault();
                 this.app.channelList.selectNextChannel();
                 break;
         }
+        */
     }
 
     async show() {

@@ -184,16 +184,23 @@
                 <div class="form-group">
                     <label for="username">Username</label>
                     <input type="text" id="username" name="username" required autocomplete="username"
-                        placeholder="Enter your username">
+                        placeholder="Enter your username"
+                        autofocus
+                        data-arrowdown="password"
+                        data-arrowup="btn-sso-login">
                 </div>
 
                 <div class="form-group">
                     <label for="password">Password</label>
                     <input type="password" id="password" name="password" required autocomplete="current-password"
-                        minlength="6" placeholder="Enter your password">
+                        minlength="6" placeholder="Enter your password"
+                        data-arrowdown="submit-btn"
+                        data-arrowup="username">
                 </div>
 
-                <button type="submit" class="btn-login" id="submit-btn">Sign In</button>
+                <button type="submit" class="btn-login" id="submit-btn"
+                        data-arrowdown="btn-sso-login"
+                        data-arrowup="password">Sign In</button>
             </form>
 
             <div class="sso-divider" style="text-align: center; margin: 20px 0; position: relative;">
@@ -205,7 +212,9 @@
             </div>
 
             <button id="btn-sso-login" class="btn-login"
-                style="background: transparent; border: 1px solid var(--color-border); color: var(--color-text-primary); display: flex; align-items: center; justify-content: center; gap: 10px; transition: all 0.2s;">
+                style="background: transparent; border: 1px solid var(--color-border); color: var(--color-text-primary); display: flex; align-items: center; justify-content: center; gap: 10px; transition: all 0.2s;"
+                        data-arrowdown="username"
+                        data-arrowup="submit-btn">
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"
                     style="width: 20px; height: 20px;">
                     <path
@@ -312,8 +321,35 @@
             }
         });
 
+
+        // Handle d-pad button press
+        document.addEventListener('keydown', async (e) => {
+
+            //let currentFocus = event.target.id; // doesn't work when called from hosting app
+            //alert(event.key);
+            //alert(currentFocus); 
+
+            let currentElement = document.activeElement;
+            let nextElementId  = null;
+            switch (event.key) {
+                case "ArrowDown":
+                    nextElementId = currentElement.dataset.arrowdown;
+                    break;
+                case "ArrowUp":
+                    nextElementId = currentElement.dataset.arrowup;
+                    break;
+            }
+            if (nextElementId) {
+                let nextElement = document.getElementById(nextElementId);
+                if (nextElement) {
+                    nextElement.focus();
+                }
+            }
+        });
+
         // Check setup status on load
         checkSetupRequired();
+
     </script>
 </body>
 

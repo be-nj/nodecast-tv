@@ -219,6 +219,7 @@ class App {
             </svg></span>
             <span>Logout</span>
         `;
+        logoutLink.dataset.arrowleft='R0C5';
 
         logoutLink.addEventListener('click', async (e) => {
             e.preventDefault();
@@ -258,6 +259,9 @@ class App {
         // Update nav
         document.querySelectorAll('.nav-link').forEach(link => {
             link.classList.toggle('active', link.dataset.page === pageName);
+            if (link.dataset.page === pageName) {
+                link.focus();
+            }
         });
 
         // Update pages
@@ -275,6 +279,11 @@ class App {
         if (this.pages[pageName]?.show) {
             this.pages[pageName].show();
         }
+    }
+    
+    onHome() {
+        //alert (document.activeElement.id);
+        return (document.activeElement.id === 'R0C0');
     }
 }
 
