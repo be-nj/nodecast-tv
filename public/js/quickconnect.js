@@ -53,11 +53,45 @@
         loginBox.appendChild(panel);
 
         var pollTimer = null;
+        var logo = document.querySelector('.login-logo');
+        var errorMessage = document.getElementById('error-message');
+        var originalSubtitle = subtitle ? subtitle.textContent : '';
 
         btn.addEventListener('click', function () {
             btn.disabled = true;
             startSession();
         });
+
+        // While pairing, hide everything except the panel so it always fits
+        // the TV viewport - the centered login layout cannot scroll.
+        function enterPairingUi() {
+            if (loginForm) { loginForm.style.display = 'none'; }
+            if (ssoDivider) { ssoDivider.style.display = 'none'; }
+            if (ssoBtn) { ssoBtn.style.display = 'none'; }
+            if (logo) { logo.style.display = 'none'; }
+            btn.style.display = 'none';
+        }
+
+        function exitPairingUi() {
+            if (loginForm) { loginForm.style.display = ''; }
+            if (ssoDivider) { ssoDivider.style.display = ''; }
+            if (ssoBtn) { ssoBtn.style.display = ''; }
+            if (logo) { logo.style.display = ''; }
+            btn.style.display = '';
+            btn.disabled = false;
+            if (subtitle) { subtitle.textContent = originalSubtitle; }
+            panel.style.display = 'none';
+            btn.focus();
+        }
+
+        function cancelPairing(message) {
+            if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+            exitPairingUi();
+            if (message && errorMessage) {
+                errorMessage.textContent = message;
+                errorMessage.classList.add('show');
+            }
+        }
 
         function startSession() {
             fetch('/api/auth/quickconnect/start', { method: 'POST' })
@@ -68,28 +102,34 @@
                     pollTimer = setInterval(function () { pollSession(session.secret); }, POLL_INTERVAL_MS);
                 })
                 .catch(function (err) {
-                    panel.style.display = 'block';
-                    panel.textContent = err.message;
-                    btn.disabled = false;
+                    cancelPairing(err.message);
                 });
         }
 
         function showCode(session) {
             var url = window.location.origin + '/login.html?connect=' + session.code;
+            enterPairingUi();
             panel.innerHTML =
-                '<div style="font-size: 13px; color: var(--color-text-secondary); margin-bottom: 8px;">Scan with your phone, or open nodecast-tv on any signed-in device and visit:</div>' +
-                '<div style="font-size: 12px; color: var(--color-text-muted); word-break: break-all; margin-bottom: 12px;">' + url + '</div>' +
+                '<div style="font-size: 13px; color: var(--color-text-secondary); margin-bottom: 12px;">Scan with your phone (signed-in) and approve</div>' +
                 '<div id="quickconnect-qr" style="display: inline-block; background: white; padding: 8px; border-radius: var(--radius-md);"></div>' +
-                '<div style="font-size: 32px; font-weight: 700; letter-spacing: 6px; color: var(--color-accent); margin-top: 12px;">' + session.code + '</div>' +
-                '<div style="font-size: 13px; color: var(--color-text-secondary); margin-top: 8px;">Waiting for approval&hellip; (code valid for 5 minutes)</div>';
+                '<div style="font-size: 28px; font-weight: 700; letter-spacing: 6px; color: var(--color-accent); margin-top: 10px;">' + session.code + '</div>' +
+                '<div style="font-size: 12px; color: var(--color-text-secondary); margin-top: 6px;">Waiting for approval&hellip; (valid 5 minutes)</div>' +
+                '<button id="btn-quickconnect-cancel" class="btn-login" style="margin-top: 12px; background: transparent; border: 1px solid var(--color-border); color: var(--color-text-primary);">Cancel</button>';
             panel.style.display = 'block';
 
             if (typeof qrcode === 'function') {
                 var qr = qrcode(0, 'M');
                 qr.addData(url);
                 qr.make();
-                document.getElementById('quickconnect-qr').innerHTML = qr.createSvgTag({ cellSize: 4, margin: 0 });
+                document.getElementById('quickconnect-qr').innerHTML = qr.createSvgTag({ cellSize: 3, margin: 0 });
             }
+
+            var cancelBtn = document.getElementById('btn-quickconnect-cancel');
+            // d-pad: the cancel button is the only focusable element while pairing
+            cancelBtn.dataset.arrowup = 'btn-quickconnect-cancel';
+            cancelBtn.dataset.arrowdown = 'btn-quickconnect-cancel';
+            cancelBtn.addEventListener('click', function () { cancelPairing(null); });
+            cancelBtn.focus();
         }
 
         function pollSession(secret) {
@@ -101,9 +141,7 @@
                         localStorage.setItem('authToken', result.token);
                         window.location.replace('/');
                     } else if (result.status === 'expired') {
-                        clearInterval(pollTimer);
-                        panel.innerHTML = '<div style="color: var(--color-error);">Code expired - try again.</div>';
-                        btn.disabled = false;
+                        cancelPairing('Quick Connect code expired - try again.');
                     }
                 })
                 .catch(function () { /* transient network error - keep polling */ });
