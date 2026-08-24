@@ -169,6 +169,7 @@ process.on('SIGTERM', async () => {
 });
 
 // API Routes
+app.use('/api/auth/quickconnect', require('./routes/quickconnect'));
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/sources', require('./routes/sources'));
 app.use('/api/proxy', require('./routes/proxy'));

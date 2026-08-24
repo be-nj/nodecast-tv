@@ -348,3 +348,9 @@ Under the condition that:
 -   You license any derivative works under the same GPL-3.0 license
 
 See the [LICENSE](LICENSE) file for details.
+
+## Quick Connect (this fork)
+
+Jellyfin-style TV pairing, added in this fork for use with [nodecast_tv_android](https://github.com/be-nj/nodecast_tv_android): instead of typing credentials with a TV remote, the login page offers a **Quick Connect** button that shows a short code and a QR code. Scan it with a phone where you are already signed in to nodecast-tv (or open the shown link on any signed-in device) and hit **Approve** — the TV receives its own JWT and is signed in. Codes are valid for 5 minutes, single-use, and approval always requires an authenticated user.
+
+Endpoints (all under `/api/auth/quickconnect`): `POST /start`, `GET /poll?secret=...`, `POST /approve` (authenticated). Implementation lives in `server/quickconnect.js`, `server/routes/quickconnect.js` and `public/js/quickconnect.js` to keep the diff against upstream minimal.
