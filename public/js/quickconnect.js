@@ -24,6 +24,14 @@
     var params = new URLSearchParams(window.location.search);
     var approveCode = params.get('connect');
 
+    // The login layout centers with justify-content, which clips overflowing
+    // content on small screens with no way to scroll to it. margin:auto on
+    // the box gives "safe" centering: centered when it fits, scrollable when
+    // it does not.
+    var loginContainer = document.querySelector('.login-container');
+    if (loginContainer) { loginContainer.style.justifyContent = 'flex-start'; }
+    if (loginBox) { loginBox.style.margin = 'auto'; }
+
     if (approveCode) {
         renderApproveMode(approveCode.toUpperCase());
     } else {
@@ -158,14 +166,20 @@
         panel.style.cssText = 'text-align: center; margin-top: 16px; padding: 16px; background: var(--color-bg-tertiary); border: 1px solid var(--color-border); border-radius: var(--radius-md);';
 
         if (!token) {
-            // Not signed in on this device: keep the login form visible and
-            // explain what to do.
+            // Not signed in on this device: remember the code, show the login
+            // form. After signing in (local or OIDC) the app page redirects
+            // back here via js/quickconnect-redirect.js.
+            try {
+                localStorage.setItem('quickconnectPending', JSON.stringify({ code: code, ts: Date.now() }));
+            } catch (e) { /* private mode - user just has to re-scan */ }
             panel.innerHTML =
                 '<div style="font-size: 14px; color: var(--color-text-primary);">TV sign-in request <b style="letter-spacing: 3px; color: var(--color-accent);">' + escapeHtml(code) + '</b></div>' +
-                '<div style="font-size: 13px; color: var(--color-text-secondary); margin-top: 8px;">Sign in on this device first, then scan the QR code on the TV again (or reopen this link).</div>';
+                '<div style="font-size: 13px; color: var(--color-text-secondary); margin-top: 8px;">Sign in below - you will then be asked to approve the TV.</div>';
             loginBox.insertBefore(panel, loginForm);
             return;
         }
+
+        try { localStorage.removeItem('quickconnectPending'); } catch (e) { /* ignore */ }
 
         if (subtitle) { subtitle.textContent = 'Approve TV sign-in'; }
         if (loginForm) { loginForm.style.display = 'none'; }
