@@ -466,8 +466,24 @@ class WatchPage {
                     this.setVolumeFromStorage();
                     return;
                 } else if (info.needsRemux) {
-                    // Remux (container swap) currently doesn't use session logic, uses direct stream
-                    // TODO: Move remux to session logic if seeking is needed for TS files
+                    // Live TS feeds drop and reconnect upstream all the time; the
+                    // progressive remux pipe dies with every drop, while an HLS
+                    // copy session rides them out (ffmpeg reconnects, player
+                    // keeps its segment buffer). Keep the pipe for VOD files.
+                    const isLiveTs = url.includes('/proxy/ts/stream/') || isRawTs;
+                    if (isLiveTs) {
+                        console.log('[WatchPage] Auto: Live TS - using HLS copy session');
+                        this.updateTranscodeStatus('transcoding', 'Live (HLS)');
+                        const playlistUrl = await this.startTranscodeSession(url, {
+                            videoMode: 'copy',
+                            videoCodec: info.video,
+                            audioCodec: info.audio,
+                            audioChannels: info.audioChannels
+                        });
+                        this.playHls(playlistUrl);
+                        this.setVolumeFromStorage();
+                        return;
+                    }
                     console.log('[WatchPage] Auto: Using remux (.ts container)');
                     this.updateTranscodeStatus('remuxing', 'Remux (Auto)');
                     const finalUrl = `/api/remux?url=${encodeURIComponent(url)}`;

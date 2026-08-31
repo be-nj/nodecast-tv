@@ -955,6 +955,29 @@ class VideoPlayer {
                         window.dispatchEvent(new CustomEvent('channelChanged', { detail: channel }));
                         return;
                     } else if (info.needsRemux) {
+                        // Live TS feeds drop and reconnect upstream all the time; the
+                        // progressive remux pipe dies with every drop, while an HLS
+                        // copy session rides them out (ffmpeg reconnects, player
+                        // keeps its segment buffer). Keep the pipe for VOD files.
+                        const isLiveTs = streamUrl.includes('/proxy/ts/stream/') ||
+                            (streamUrl.includes('.ts') && !streamUrl.includes('.m3u8'));
+                        if (isLiveTs) {
+                            console.log('[Player] Auto: Live TS - using HLS copy session');
+                            this.updateTranscodeStatus('transcoding', 'Live (HLS)');
+                            const playlistUrl = await this.startTranscodeSession(streamUrl, {
+                                videoMode: 'copy',
+                                videoCodec: info.video,
+                                audioCodec: info.audio,
+                                audioChannels: info.audioChannels
+                            });
+                            this.currentUrl = playlistUrl;
+                            this.playHls(playlistUrl);
+                            this.updateNowPlaying(channel);
+                            this.showNowPlayingOverlay();
+                            this.fetchEpgData(channel);
+                            window.dispatchEvent(new CustomEvent('channelChanged', { detail: channel }));
+                            return;
+                        }
                         // Raw .ts container - use remux
                         console.log('[Player] Auto: Using remux (.ts container)');
                         this.updateTranscodeStatus('remuxing', 'Remux (Auto)');
