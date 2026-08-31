@@ -514,8 +514,17 @@ class WatchPage {
                 videoCodec = info.video;
             } catch (e) { console.warn('Probe failed for force audio, assuming h264'); }
 
+            // Copy only works for codecs the player can decode (h264/hevc).
+            // Some live feeds switch to e.g. mpeg2 placeholders - encode those,
+            // otherwise the copied stream is undecodable and playback hangs.
+            const copyable = videoCodec === 'unknown' ||
+                ['h264', 'avc', 'hevc', 'h265'].some(c => videoCodec.includes(c));
+            if (!copyable) {
+                console.log(`[WatchPage] Force Audio: video is ${videoCodec}, falling back to encode`);
+            }
+
             const playlistUrl = await this.startTranscodeSession(url, {
-                videoMode: 'copy',
+                videoMode: copyable ? 'copy' : 'encode',
                 videoCodec,
                 seekOffset: this.resumeTime
             });
