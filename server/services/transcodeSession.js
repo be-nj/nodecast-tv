@@ -194,8 +194,8 @@ class TranscodeSession extends EventEmitter {
 
         // Input options (common)
         args.push(
-            '-probesize', '2000000',
-            '-analyzeduration', '2000000',
+            '-probesize', '5000000',
+            '-analyzeduration', '5000000',
             '-fflags', '+genpts+discardcorrupt',
             '-err_detect', 'ignore_err',
             '-reconnect', '1',

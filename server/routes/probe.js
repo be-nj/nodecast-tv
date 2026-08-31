@@ -43,8 +43,8 @@ function probeStream(url, ffprobePath, userAgent = null, timeout = 15000) {
             '-print_format', 'json',
             '-show_streams',
             '-show_format',
-            '-probesize', '2000000',
-            '-analyzeduration', '2000000',
+            '-probesize', '5000000',
+            '-analyzeduration', '5000000',
             url
         ];
 
