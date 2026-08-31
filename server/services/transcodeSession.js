@@ -27,7 +27,7 @@ const CACHE_DIR = path.join(process.cwd(), 'transcode-cache');
 
 // Session settings
 const SESSION_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes idle timeout
-const SEGMENT_DURATION = 4; // seconds per HLS segment
+const SEGMENT_DURATION = 2; // seconds per HLS segment (shorter = faster startup on channel zap)
 const CLEANUP_INTERVAL_MS = 5 * 60 * 1000; // Check every 5 minutes
 
 /**
@@ -194,8 +194,8 @@ class TranscodeSession extends EventEmitter {
 
         // Input options (common)
         args.push(
-            '-probesize', '5000000',
-            '-analyzeduration', '5000000',
+            '-probesize', '2000000',
+            '-analyzeduration', '2000000',
             '-fflags', '+genpts+discardcorrupt',
             '-err_detect', 'ignore_err',
             '-reconnect', '1',
