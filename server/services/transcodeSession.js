@@ -699,6 +699,21 @@ async function getOrCreateSession(url, options = {}) {
 }
 
 /**
+ * Kill all live sessions belonging to an owner (one live stream per user).
+ * Frees the upstream provider connection immediately when a user zaps or
+ * starts watching on another device.
+ */
+async function removeLiveSessionsForOwner(owner) {
+    if (!owner) return;
+    for (const [id, session] of sessions) {
+        if (session.options.owner === owner && isLiveUrl(session.url)) {
+            console.log(`[TranscodeSession] New live stream for "${owner}" - killing previous session ${id}`);
+            await removeSession(id);
+        }
+    }
+}
+
+/**
  * Stop and remove a session
  */
 async function removeSession(sessionId) {
@@ -780,6 +795,8 @@ module.exports = {
     getSession,
     getOrCreateSession,
     removeSession,
+    removeLiveSessionsForOwner,
+    isLiveUrl,
     cleanupStaleSessions,
     recoverSessions,
     startCleanupInterval,

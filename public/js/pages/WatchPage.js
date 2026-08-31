@@ -329,9 +329,12 @@ class WatchPage {
     async startTranscodeSession(url, options = {}) {
         try {
             console.log('[WatchPage] Starting HLS transcode session...', options);
+            const headers = { 'Content-Type': 'application/json' };
+            const token = localStorage.getItem('authToken');
+            if (token) headers['Authorization'] = `Bearer ${token}`;
             const res = await fetch('/api/transcode/session', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers,
                 body: JSON.stringify({
                     url,
                     seekOffset: this.resumeTime, // Pass resume point to backend

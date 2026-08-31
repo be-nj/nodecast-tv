@@ -5,6 +5,18 @@ const path = require('path');
 const fs = require('fs').promises;
 const db = require('../db');
 const transcodeSession = require('../services/transcodeSession');
+const { verifyToken } = require('../auth');
+
+/**
+ * Resolve the requesting user from the JWT, if present.
+ * Used to enforce one live stream per user (upstream provider limits).
+ */
+function getRequestOwner(req) {
+    const authHeader = req.headers.authorization || '';
+    if (!authHeader.startsWith('Bearer ')) return null;
+    const payload = verifyToken(authHeader.slice(7));
+    return payload?.username || payload?.id || null;
+}
 
 /**
  * Transcode Routes
@@ -39,10 +51,18 @@ router.post('/session', async (req, res) => {
     const settings = await db.settings.get();
     const userAgent = db.getUserAgent(settings);
 
+    // One live stream per user: starting a new live session kills the user's
+    // previous one so the upstream provider slot is freed immediately.
+    const owner = getRequestOwner(req);
+    if (owner && transcodeSession.isLiveUrl(url)) {
+        await transcodeSession.removeLiveSessionsForOwner(owner);
+    }
+
     try {
         const session = await transcodeSession.createSession(url, {
             ffmpegPath,
             userAgent,
+            owner,
             seekOffset: seekOffset || 0,
             hwEncoder: settings.hwEncoder || 'software',
             maxResolution: settings.maxResolution || '1080p',
