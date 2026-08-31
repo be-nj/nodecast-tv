@@ -80,8 +80,10 @@ router.post('/session', async (req, res) => {
 
         await session.start();
 
-        // Wait for playlist to be ready (first segments generated)
-        const ready = await session.waitForPlaylist(15000);
+        // Wait for playlist to be ready (first segments generated).
+        // 20s: a live source with late-muxed audio can hold ffmpeg in
+        // analysis for up to ~8s before the first segment appears.
+        const ready = await session.waitForPlaylist(20000);
 
         if (!ready) {
             await transcodeSession.removeSession(session.id);

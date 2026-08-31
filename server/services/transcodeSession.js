@@ -210,8 +210,8 @@ class TranscodeSession extends EventEmitter {
         // ffmpeg emit video-only output because -map 0:a:0? matches nothing.
         const audioUnknown = !this.options.audioCodec || this.options.audioCodec === 'unknown';
         args.push(
-            '-probesize', audioUnknown ? '10000000' : '5000000',
-            '-analyzeduration', audioUnknown ? '15000000' : '5000000',
+            '-probesize', audioUnknown ? '8000000' : '5000000',
+            '-analyzeduration', audioUnknown ? '8000000' : '5000000',
             '-fflags', '+genpts+discardcorrupt',
             '-err_detect', 'ignore_err',
             '-reconnect', '1',

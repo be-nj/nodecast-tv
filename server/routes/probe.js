@@ -174,8 +174,13 @@ router.get('/', async (req, res) => {
         const probeResult = await probeStream(url, ffprobePath, ua);
         const analysis = analyzeProbeResult(probeResult, url);
 
-        // Cache result
-        probeCache.set(cacheKey, { result: analysis, timestamp: Date.now() });
+        // Cache result - but never cache results without a detected audio
+        // stream: providers serve a silent "stream offline" slate when the
+        // account connection limit is hit, and caching that poisons every
+        // zap to the channel for the next few minutes.
+        if (analysis.audio !== 'unknown') {
+            probeCache.set(cacheKey, { result: analysis, timestamp: Date.now() });
+        }
 
         console.log(`[Probe] Result: video=${analysis.video}, audio=${analysis.audio}, ` +
             `container=${analysis.container}, compatible=${analysis.compatible}, ` +
