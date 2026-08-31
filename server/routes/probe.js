@@ -19,14 +19,7 @@ const { spawn } = require('child_process');
 
 // Probe cache (URL → result)
 const probeCache = new Map();
-const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
-// Live TS streams (e.g. Dispatcharr proxy channels) keep their codecs for the
-// lifetime of the channel, so cache them much longer to skip re-probing on zap
-const LIVE_CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours
-
-function isLiveTsUrl(url) {
-    return url.includes('/proxy/ts/stream/') || (url.includes('.ts') && !url.includes('.m3u8'));
-}
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes (event channels can swap codecs, keep this short)
 
 // Browser-compatible codecs
 const BROWSER_VIDEO_CODECS = ['h264', 'avc', 'avc1'];
@@ -170,8 +163,7 @@ router.get('/', async (req, res) => {
 
     // Check cache
     const cached = probeCache.get(cacheKey);
-    const cacheTtl = isLiveTsUrl(url) ? LIVE_CACHE_TTL : CACHE_TTL;
-    if (cached && (Date.now() - cached.timestamp < cacheTtl)) {
+    if (cached && (Date.now() - cached.timestamp < CACHE_TTL)) {
         console.log(`[Probe] Cache hit for: ${url.substring(0, 50)}...`);
         return res.json(cached.result);
     }
