@@ -26,9 +26,20 @@ const sessions = new Map();
 const CACHE_DIR = path.join(process.cwd(), 'transcode-cache');
 
 // Session settings
-const SESSION_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes idle timeout
+const SESSION_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes idle timeout (VOD: allow long pauses)
+// Live streams hold a provider connection upstream (e.g. Dispatcharr accounts
+// with a 2-stream limit), so abandoned live sessions must be reaped quickly
+// or channel zapping exhausts the provider slots with orphaned ffmpeg pulls.
+const LIVE_SESSION_TIMEOUT_MS = 90 * 1000;
 const SEGMENT_DURATION = 2; // seconds per HLS segment (shorter = faster startup on channel zap)
-const CLEANUP_INTERVAL_MS = 5 * 60 * 1000; // Check every 5 minutes
+const CLEANUP_INTERVAL_MS = 30 * 1000; // Check every 30 seconds
+
+/**
+ * Live TS streams (Dispatcharr proxy channels, raw .ts feeds) vs VOD files
+ */
+function isLiveUrl(url) {
+    return url.includes('/proxy/ts/stream/') || (url.includes('.ts') && !url.includes('.m3u8'));
+}
 
 /**
  * Generate a unique session ID
@@ -193,9 +204,14 @@ class TranscodeSession extends EventEmitter {
         }
 
         // Input options (common)
+        // When the audio codec is unknown (probe found no audio stream), widen
+        // the analysis window: some providers mux the first audio packet only
+        // ~10-15s of stream time into the feed, and a too-small window makes
+        // ffmpeg emit video-only output because -map 0:a:0? matches nothing.
+        const audioUnknown = !this.options.audioCodec || this.options.audioCodec === 'unknown';
         args.push(
-            '-probesize', '5000000',
-            '-analyzeduration', '5000000',
+            '-probesize', audioUnknown ? '10000000' : '5000000',
+            '-analyzeduration', audioUnknown ? '15000000' : '5000000',
             '-fflags', '+genpts+discardcorrupt',
             '-err_detect', 'ignore_err',
             '-reconnect', '1',
@@ -699,7 +715,8 @@ async function removeSession(sessionId) {
 async function cleanupStaleSessions() {
     const now = Date.now();
     for (const [id, session] of sessions) {
-        if (now - session.lastAccess > SESSION_TIMEOUT_MS) {
+        const timeout = isLiveUrl(session.url) ? LIVE_SESSION_TIMEOUT_MS : SESSION_TIMEOUT_MS;
+        if (now - session.lastAccess > timeout) {
             console.log(`[TranscodeSession] Cleaning up stale session ${id}`);
             await removeSession(id);
         }
