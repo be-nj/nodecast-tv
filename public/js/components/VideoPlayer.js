@@ -876,8 +876,9 @@ class VideoPlayer {
     /**
      * Play a channel
      */
-    async play(channel, streamUrl) {
+    async play(channel, streamUrl, options = {}) {
         this.currentChannel = channel;
+        const playId = this.playSeq = (this.playSeq || 0) + 1;
 
         try {
             // Stop any WatchPage playback (movies/series) before starting Live TV
@@ -896,6 +897,21 @@ class VideoPlayer {
 
             // Determine if HLS or direct stream
             this.currentUrl = streamUrl;
+
+            // Dispatcharr channel with several streams (FHD/HD/UHD...): start
+            // with the best one this device can play without video transcoding
+            if (options.variantQueue) {
+                this.variantQueue = options.variantQueue;
+            } else {
+                const ranked = await this.getRankedVariants(streamUrl);
+                if (playId !== this.playSeq) return; // zapped away meanwhile
+                this.variantQueue = ranked.slice(1);
+                if (ranked.length > 0) {
+                    streamUrl = ranked[0].url;
+                    this.currentUrl = streamUrl;
+                    console.log(`[Player] Variant: ${ranked[0].name} (${ranked[0].codec || '?'} ${ranked[0].height || '?'}p)`);
+                }
+            }
 
             // CHECK: Auto Transcode (Smart) - probe first, then decide
             if (this.settings.autoTranscode) {
@@ -937,7 +953,7 @@ class VideoPlayer {
 
                         // Heuristic: If video is h264, it's likely compatible, so only copy video (audio transcode only)
                         // BUT: If upscaling is enabled, we MUST encode.
-                        const videoMode = (info.video && info.video.includes('h264') && !this.settings.upscaleEnabled) ? 'copy' : 'encode';
+                        const videoMode = (info.video && this.canCopyVideo(info.video, info.height) && !this.settings.upscaleEnabled) ? 'copy' : 'encode';
                         const statusText = videoMode === 'copy' ? 'Transcoding (Audio)' : (this.settings.upscaleEnabled ? 'Upscaling' : 'Transcoding (Video)');
                         const statusMode = this.settings.upscaleEnabled ? 'upscaling' : 'transcoding';
 
@@ -1055,17 +1071,18 @@ class VideoPlayer {
 
                 // Probe to get video codec for HEVC tag handling
                 let videoCodec = 'unknown';
+                let videoHeight = null;
                 try {
                     const probeRes = await fetch(`/api/probe?url=${encodeURIComponent(streamUrl)}`);
                     const info = await probeRes.json();
                     videoCodec = info.video;
+                    videoHeight = info.height;
                 } catch (e) { console.warn('Probe failed for force audio, assuming h264'); }
 
-                // Copy only works for codecs the player can decode (h264/hevc).
-                // Some live feeds switch to e.g. mpeg2 placeholders - encode those,
-                // otherwise the copied stream is undecodable and playback hangs.
-                const copyable = videoCodec === 'unknown' ||
-                    ['h264', 'avc', 'hevc', 'h265'].some(c => videoCodec.includes(c));
+                // Copy only works for codecs this device can decode (h264, HEVC
+                // where supported). Some live feeds switch to e.g. mpeg2
+                // placeholders - encode those, otherwise playback hangs.
+                const copyable = this.canCopyVideo(videoCodec, videoHeight);
                 if (!copyable) {
                     console.log(`[Player] Force Audio: video is ${videoCodec}, falling back to encode`);
                 }
@@ -1267,8 +1284,58 @@ class VideoPlayer {
                 // Simple error handling for forced HLS/transcode modes
                 console.error('Fatal HLS error in transcode mode:', data);
                 this.hls.destroy();
+                this.tryNextVariant();
             }
         });
+    }
+
+    /**
+     * Variants of a Dispatcharr channel, best first for this device.
+     * Empty when there is nothing to choose from.
+     */
+    async getRankedVariants(streamUrl) {
+        if (!window.StreamVariants || !streamUrl || !streamUrl.includes('/proxy/ts/stream/')) return [];
+        try {
+            const res = await fetch(`/api/variants?url=${encodeURIComponent(streamUrl)}`);
+            const { variants } = await res.json();
+            if (!Array.isArray(variants) || variants.length < 2) return [];
+            return StreamVariants.rankVariants(variants, this.getDecodeCaps(), StreamVariants.loadPrefs(localStorage));
+        } catch (err) {
+            console.warn('[Player] Variant lookup failed, using channel default:', err.message);
+            return [];
+        }
+    }
+
+    getDecodeCaps() {
+        if (!this.decodeCaps && window.StreamVariants) {
+            this.decodeCaps = StreamVariants.detectCaps(window);
+            console.log('[Player] Decode caps:', this.decodeCaps);
+        }
+        return this.decodeCaps || { hevc: false, hevc4k: false };
+    }
+
+    /**
+     * Whether the video track can be copied as-is for this device.
+     */
+    canCopyVideo(codec, height) {
+        if (!codec || codec === 'unknown') return true;
+        if (codec.includes('h264') || codec.includes('avc')) return true;
+        if (codec.includes('hevc') || codec.includes('h265')) {
+            if (!window.StreamVariants) return true;
+            return StreamVariants.hevcAllowed(height || 1080, this.getDecodeCaps(), StreamVariants.loadPrefs(localStorage));
+        }
+        return false;
+    }
+
+    /**
+     * Switch to the next variant after the current one failed.
+     */
+    tryNextVariant() {
+        if (!this.variantQueue || this.variantQueue.length === 0 || !this.currentChannel) return false;
+        const [next, ...rest] = this.variantQueue;
+        console.log(`[Player] Stream failed, trying variant ${next.name}`);
+        this.play(this.currentChannel, next.url, { variantQueue: rest });
+        return true;
     }
 
     async updateTranscodeStatus(mode, text) {

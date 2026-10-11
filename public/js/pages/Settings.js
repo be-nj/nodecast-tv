@@ -94,7 +94,37 @@ class SettingsPage {
         this.updateEpgLastRefreshed();
     }
 
+    /**
+     * Per-device stream selection (stored in localStorage, not server settings,
+     * because TV and desktop decode different codecs).
+     */
+    initStreamSelectionSettings() {
+        if (!window.StreamVariants) return;
+        const hevcSelect = document.getElementById('setting-hevc-mode');
+        const heightSelect = document.getElementById('setting-max-direct-height');
+        const detectedHint = document.getElementById('setting-hevc-detected');
+        const prefs = StreamVariants.loadPrefs(localStorage);
+        const caps = this.app.player?.getDecodeCaps?.() || StreamVariants.detectCaps(window);
+
+        if (hevcSelect) hevcSelect.value = prefs.hevcMode;
+        if (heightSelect) heightSelect.value = String(prefs.maxHeight);
+        if (detectedHint) {
+            detectedHint.textContent = `Detected on this device: HEVC 1080p ${caps.hevc ? 'yes' : 'no'}, HEVC 4K ${caps.hevc4k ? 'yes' : 'no'}.`;
+        }
+
+        if (this.streamSelectionBound) return;
+        this.streamSelectionBound = true;
+        hevcSelect?.addEventListener('change', () => {
+            StreamVariants.savePrefs(localStorage, { hevcMode: hevcSelect.value });
+        });
+        heightSelect?.addEventListener('change', () => {
+            StreamVariants.savePrefs(localStorage, { maxHeight: Number(heightSelect.value) });
+        });
+    }
+
     async initTranscodingSettings() {
+        this.initStreamSelectionSettings();
+
         // Encoder settings
         const hwEncoderSelect = document.getElementById('setting-hw-encoder');
         const maxResolutionSelect = document.getElementById('setting-max-resolution');
