@@ -12,6 +12,7 @@
 
 const CACHE_TTL_MS = 10 * 60 * 1000;
 const cache = new Map(); // channel uuid -> { at, variants }
+let channelIds = { at: 0, byUuid: new Map() }; // channel uuid -> Dispatcharr id
 
 const CHANNEL_URL_RE = /^(https?:\/\/[^/]+)\/proxy\/ts\/stream\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\/?(?:[?#].*)?$/i;
 
@@ -66,6 +67,18 @@ async function api(baseUrl, apiKey, path, options = {}) {
 }
 
 /**
+ * Dispatcharr channel id for a uuid. The summary endpoint is a plain GET, so
+ * a Standard (non-admin) API user is enough.
+ */
+async function channelIdFor(apiBase, apiKey, uuid) {
+    const fresh = Date.now() - channelIds.at < CACHE_TTL_MS;
+    if (fresh && channelIds.byUuid.has(uuid)) return channelIds.byUuid.get(uuid);
+    const summary = await api(apiBase, apiKey, '/api/channels/channels/summary/');
+    channelIds = { at: Date.now(), byUuid: new Map((summary || []).map(c => [c.uuid, c.id])) };
+    return channelIds.byUuid.get(uuid) ?? null;
+}
+
+/**
  * @param {string} channelUrl - Dispatcharr channel URL (…/proxy/ts/stream/<uuid>)
  * @returns {Promise<Array|null>} ordered variants, or null when not applicable
  */
@@ -84,17 +97,18 @@ async function getVariants(channelUrl) {
     const hit = cache.get(uuid);
     if (hit && Date.now() - hit.at < CACHE_TTL_MS) return hit.variants;
 
-    const channels = await api(apiBase, apiKey, '/api/channels/channels/by-uuids/', {
-        method: 'POST',
-        body: JSON.stringify({ uuids: [uuid] }),
-    });
-    const channel = Array.isArray(channels) ? channels[0] : null;
-    if (!channel) return null;
+    const channelId = await channelIdFor(apiBase, apiKey, uuid);
+    if (channelId == null) return null;
 
-    const detail = await api(apiBase, apiKey, `/api/channels/channels/${channel.id}/?include_streams=true`);
+    const detail = await api(apiBase, apiKey, `/api/channels/channels/${channelId}/?include_streams=true`);
     const variants = toVariants(origin, detail.streams);
     cache.set(uuid, { at: Date.now(), variants });
     return variants;
 }
 
-module.exports = { getVariants, toVariants, normalizeCodec, parseResolution, _cache: cache };
+function _reset() {
+    cache.clear();
+    channelIds = { at: 0, byUuid: new Map() };
+}
+
+module.exports = { getVariants, toVariants, normalizeCodec, parseResolution, _reset };

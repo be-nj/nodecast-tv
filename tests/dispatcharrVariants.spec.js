@@ -63,9 +63,9 @@ test('never sends the key to a host other than DISPATCHARR_URL', async (t) => {
 });
 
 test('looks up the channel by uuid and caches the result', async (t) => {
-    dv._cache.clear();
+    dv._reset();
     const calls = mockFetch(t, (url) => {
-        if (url.endsWith('/api/channels/channels/by-uuids/')) return [{ id: 42 }];
+        if (url.endsWith('/api/channels/channels/summary/')) return [{ id: 7, uuid: 'other' }, { id: 42, uuid: UUID }];
         if (url.endsWith('/api/channels/channels/42/?include_streams=true')) {
             return { streams: [{ name: 'ZDF FHD', stream_hash: 'h1', stream_stats: { video_codec: 'h264', resolution: '1920x1080' } }] };
         }
@@ -78,6 +78,13 @@ test('looks up the channel by uuid and caches the result', async (t) => {
         assert.strictEqual(second, first);
     });
     assert.strictEqual(calls.length, 2);
-    assert.strictEqual(calls[0].opts.headers['X-API-Key'], 'k');
-    assert.deepStrictEqual(JSON.parse(calls[0].opts.body), { uuids: [UUID] });
+    assert.ok(calls.every(c => c.opts.headers['X-API-Key'] === 'k' && !c.opts.method));
+});
+
+test('unknown channel uuid yields null', async (t) => {
+    dv._reset();
+    mockFetch(t, (url) => url.endsWith('/summary/') ? [{ id: 7, uuid: 'other' }] : undefined);
+    await withEnv({ DISPATCHARR_API_KEY: 'k', DISPATCHARR_URL: 'http://dispatcharr:9191' }, async () => {
+        assert.strictEqual(await dv.getVariants(CHANNEL_URL), null);
+    });
 });
