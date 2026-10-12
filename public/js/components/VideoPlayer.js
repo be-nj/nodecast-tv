@@ -552,6 +552,7 @@ class VideoPlayer {
         this.captionsMenuOpen = !this.captionsMenuOpen;
 
         if (this.captionsMenuOpen) {
+            this.closeQualityMenu();
             this.updateCaptionsTracks();
             this.captionsMenu.classList.remove('hidden');
         } else {
@@ -852,7 +853,7 @@ class VideoPlayer {
     /**
      * Start a HLS transcode session
      */
-    async startTranscodeSession(url, options = {}) {
+    async startTranscodeSession(url, options = {}, playId = null) {
         try {
             console.log('[Player] Starting HLS transcode session...', options);
             const headers = { 'Content-Type': 'application/json' };
@@ -865,6 +866,11 @@ class VideoPlayer {
             });
             if (!res.ok) throw new Error('Failed to start session');
             const session = await res.json();
+            if (playId !== null && playId !== this.playSeq) {
+                // A newer play() started while this session was starting
+                fetch(`/api/transcode/${session.sessionId}`, { method: 'DELETE' }).catch(() => {});
+                return null;
+            }
             this.currentSessionId = session.sessionId;
             return session.playlistUrl;
         } catch (err) {
@@ -896,13 +902,19 @@ class VideoPlayer {
     async play(channel, streamUrl, options = {}) {
         this.currentChannel = channel;
         const playId = this.playSeq = (this.playSeq || 0) + 1;
+        // Every await below may return after the viewer zapped or picked
+        // another quality; a superseded play() must not touch the player.
+        const stale = () => playId !== this.playSeq;
+        // A quality switch or failover stays on the channel and keeps its
+        // veil; a new channel must not show the old one's frame.
+        if (!options.variantQueue) this.endSwitchVeil(true);
 
         try {
             // Stop any WatchPage playback (movies/series) before starting Live TV
             window.app?.pages?.watch?.stop?.();
 
-            // Stop current playback
-            this.stop();
+            // Stop current playback (the veil decision was made above)
+            this.stop({ keepVeil: true });
             this.updateTranscodeStatus('hidden');
 
             // Hide "select a channel" overlay
@@ -927,7 +939,7 @@ class VideoPlayer {
                 this.playingVariant = null;
                 this.updateQualityButton();
                 const auto = await this.getRankedVariants(streamUrl);
-                if (playId !== this.playSeq) return; // zapped away meanwhile
+                if (stale()) return;
                 const ranked = window.StreamVariants ? StreamVariants.applyChoice(auto, this.variantChoice()) : auto;
                 this.channelVariants = auto;
                 this.variantQueue = ranked.slice(1);
@@ -946,6 +958,7 @@ class VideoPlayer {
                 try {
                     const probeRes = await fetch(`/api/probe?url=${encodeURIComponent(streamUrl)}`);
                     const info = await probeRes.json();
+                    if (stale()) return;
                     console.log(`[Player] Probe result: video=${info.video}, audio=${info.audio}, ${info.width}x${info.height}, compatible=${info.compatible}`);
 
                     // Store probe result for quality badge display
@@ -980,9 +993,9 @@ class VideoPlayer {
 
                         // Heuristic: If video is h264, it's likely compatible, so only copy video (audio transcode only)
                         // BUT: If upscaling is enabled, we MUST encode.
-                        // Interlaced video cannot be copied: the browser stalls on it.
-                        const videoMode = (info.video && this.canCopyVideo(info.video, info.height) && !this.settings.upscaleEnabled && !info.interlaced) ? 'copy' : 'encode';
-                        const statusText = videoMode === 'copy' ? 'Transcoding (Audio)' : (this.settings.upscaleEnabled ? 'Upscaling' : (info.interlaced ? 'Transcoding (Deinterlace)' : 'Transcoding (Video)'));
+                        // Field-coded interlaced video cannot be copied: the browser stalls on it.
+                        const videoMode = (info.video && this.canCopyVideo(info.video, info.height) && !this.settings.upscaleEnabled && !info.fieldCoded) ? 'copy' : 'encode';
+                        const statusText = videoMode === 'copy' ? 'Transcoding (Audio)' : (this.settings.upscaleEnabled ? 'Upscaling' : (info.fieldCoded ? 'Transcoding (Deinterlace)' : 'Transcoding (Video)'));
                         const statusMode = this.settings.upscaleEnabled ? 'upscaling' : 'transcoding';
 
                         this.updateTranscodeStatus(statusMode, statusText);
@@ -992,7 +1005,8 @@ class VideoPlayer {
                             audioCodec: info.audio,
                             audioChannels: info.audioChannels,
                             deinterlace: !!info.interlaced
-                        });
+                        }, playId);
+                        if (!playlistUrl || stale()) return;
                         this.currentUrl = playlistUrl; // Update currentUrl for HLS reload
 
                         this.playHls(playlistUrl);
@@ -1017,7 +1031,8 @@ class VideoPlayer {
                                 videoCodec: info.video,
                                 audioCodec: info.audio,
                                 audioChannels: info.audioChannels
-                            });
+                            }, playId);
+                            if (!playlistUrl || stale()) return;
                             this.currentUrl = playlistUrl;
                             this.playHls(playlistUrl);
                             this.updateNowPlaying(channel);
@@ -1055,7 +1070,15 @@ class VideoPlayer {
                 const statusMode = this.settings.upscaleEnabled ? 'upscaling' : 'transcoding';
                 console.log(`[Player] ${statusText} enabled. Starting session (encode)...`);
                 this.updateTranscodeStatus(statusMode, statusText);
-                const playlistUrl = await this.startTranscodeSession(streamUrl, { videoMode: 'encode' });
+                // The video is encoded anyway: deinterlace interlaced sources
+                let deinterlace = false;
+                try {
+                    const info = await (await fetch(`/api/probe?url=${encodeURIComponent(streamUrl)}`)).json();
+                    deinterlace = !!info.interlaced;
+                } catch (e) { console.warn('[Player] Probe failed, encoding without deinterlace'); }
+                if (stale()) return;
+                const playlistUrl = await this.startTranscodeSession(streamUrl, { videoMode: 'encode', deinterlace }, playId);
+                if (!playlistUrl || stale()) return;
                 this.currentUrl = playlistUrl;
 
                 // Load HLS
@@ -1102,28 +1125,32 @@ class VideoPlayer {
                 let videoCodec = 'unknown';
                 let videoHeight = null;
                 let interlaced = false;
+                let fieldCoded = false;
                 try {
                     const probeRes = await fetch(`/api/probe?url=${encodeURIComponent(streamUrl)}`);
                     const info = await probeRes.json();
                     videoCodec = info.video;
                     videoHeight = info.height;
                     interlaced = !!info.interlaced;
+                    fieldCoded = !!info.fieldCoded;
                 } catch (e) { console.warn('Probe failed for force audio, assuming h264'); }
+                if (stale()) return;
 
                 // Copy only works for codecs this device can decode (h264, HEVC
                 // where supported). Some live feeds switch to e.g. mpeg2
                 // placeholders - encode those, otherwise playback hangs.
-                // Interlaced video stalls the browser when copied (see probe.js).
-                const copyable = this.canCopyVideo(videoCodec, videoHeight) && !interlaced;
+                // Field-coded interlaced video stalls the browser when copied (see probe.js).
+                const copyable = this.canCopyVideo(videoCodec, videoHeight) && !fieldCoded;
                 if (!copyable) {
-                    console.log(`[Player] Force Audio: video is ${videoCodec}${interlaced ? ' interlaced' : ''}, falling back to encode`);
+                    console.log(`[Player] Force Audio: video is ${videoCodec}${fieldCoded ? ' field-coded' : ''}, falling back to encode`);
                 }
 
                 const playlistUrl = await this.startTranscodeSession(streamUrl, {
                     videoMode: copyable ? 'copy' : 'encode',
                     videoCodec,
                     deinterlace: interlaced
-                });
+                }, playId);
+                if (!playlistUrl || stale()) return;
                 this.currentUrl = playlistUrl;
 
                 console.log('[Player] Playing transcoded HLS stream:', playlistUrl);
@@ -1407,21 +1434,34 @@ class VideoPlayer {
         const choice = this.variantChoice();
         const variants = this.channelVariants || [];
         // The provider names some streams alike (two "UHD"): number them.
-        const label = (v) => {
+        // Built with textContent: unprobed streams are labelled with the
+        // provider's own stream name.
+        const option = (v) => {
             const tag = StreamVariants.qualityTag(v);
             const same = variants.filter(o => StreamVariants.qualityTag(o) === tag);
             const detail = [v.codec === 'hevc' ? 'HEVC' : v.codec === 'h264' ? 'H.264' : null, v.height ? `${v.height}p` : null]
                 .filter(Boolean).join(' · ');
-            return `${tag}${same.length > 1 ? ` · ${same.indexOf(v) + 1}` : ''}${detail ? ` <small>${detail}</small>` : ''}`;
+            return { hash: v.hash, title: `${tag}${same.length > 1 ? ` · ${same.indexOf(v) + 1}` : ''}`, detail };
         };
-        const options = [{ hash: null, html: `Auto${variants[0] ? ` <small>${StreamVariants.qualityTag(variants[0])}</small>` : ''}` }]
-            .concat(variants.map(v => ({ hash: v.hash, html: label(v) })));
+        const options = [{ hash: null, title: 'Auto', detail: variants[0] ? StreamVariants.qualityTag(variants[0]) : '' }]
+            .concat(variants.map(option));
         this.qualityList.innerHTML = '';
-        options.forEach(opt => {
+        // Ids and data-arrow* let the TV remote's d-pad handler move through
+        // the list; Down from the last option goes back to the button.
+        const id = (i) => `player-quality-option-${i}`;
+        options.forEach((opt, i) => {
             const btn = document.createElement('button');
             const active = (opt.hash || null) === (choice || null);
-            btn.className = 'captions-option' + (active ? ' active' : '');
-            btn.innerHTML = opt.html; // .active draws the check mark
+            btn.className = 'captions-option' + (active ? ' active' : ''); // .active draws the check mark
+            btn.id = id(i);
+            if (i > 0) btn.dataset.arrowup = id(i - 1);
+            btn.dataset.arrowdown = i < options.length - 1 ? id(i + 1) : 'player-quality-btn';
+            btn.textContent = opt.title;
+            if (opt.detail) {
+                const small = document.createElement('small');
+                small.textContent = opt.detail;
+                btn.append(' ', small);
+            }
             btn.onclick = (e) => {
                 e.stopPropagation();
                 this.selectVariant(opt.hash);
@@ -1431,19 +1471,29 @@ class VideoPlayer {
         this.qualityList.querySelector('.active')?.focus();
     }
 
-    /** Fixes this channel to one stream (or back to automatic) and replays it. */
-    selectVariant(hash) {
+    closeQualityMenu() {
         this.qualityMenu?.classList.add('hidden');
+    }
+
+    /** Fixes this channel to one stream (or back to automatic) and switches to it. */
+    selectVariant(hash) {
+        const menuHadFocus = this.qualityMenu?.contains(document.activeElement);
+        this.closeQualityMenu();
+        if (menuHadFocus) this.qualityBtn?.focus();
         const key = this.variantChoiceKey();
-        if (!key || !this.currentChannel) return;
+        const variants = this.channelVariants || [];
+        if (!key || !this.currentChannel || variants.length === 0) return;
         StreamVariants.saveChoice(localStorage, key, hash);
-        if (hash && this.playingVariant?.hash === hash) {
+        // Same order play() would pick: the chosen stream first, the rest as
+        // failover. No new variant lookup: the list is known.
+        const ranked = StreamVariants.applyChoice(variants, hash);
+        const next = ranked[0];
+        if (next.hash === this.playingVariant?.hash) {
             this.updateQualityButton();
             return;
         }
-        const next = hash ? (this.channelVariants || []).find(v => v.hash === hash) : (this.channelVariants || [])[0];
-        this.startSwitchVeil(next ? StreamVariants.qualityTag(next) : 'Auto');
-        this.play(this.currentChannel, this.channelStreamUrl);
+        this.startSwitchVeil(StreamVariants.qualityTag(next));
+        this.play(this.currentChannel, next.url, { variantQueue: ranked.slice(1), variant: next });
     }
 
     /**
@@ -1468,7 +1518,8 @@ class VideoPlayer {
         this.video.after(veil);
         requestAnimationFrame(() => requestAnimationFrame(() => veil.classList.add('blurred')));
         this.switchVeil = veil;
-        const done = () => this.endSwitchVeil();
+        // Only this veil: an earlier switch's listener must not end a newer one
+        const done = () => { if (this.switchVeil === veil) this.endSwitchVeil(); };
         this.video.addEventListener('playing', done, { once: true });
         this.switchVeilTimer = setTimeout(done, 10000);
     }
@@ -1660,7 +1711,8 @@ class VideoPlayer {
     /**
      * Stop playback
      */
-    stop() {
+    stop(options = {}) {
+        if (!options.keepVeil) this.endSwitchVeil(true);
         // Stop any running transcode session first
         this.stopTranscodeSession();
 

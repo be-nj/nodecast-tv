@@ -1136,7 +1136,7 @@
   <script src="/js/icons.js"></script>
   <script src="/js/api.js?v=2"></script>
   <script src="/js/utils/streamVariants.js?v=2"></script>
-  <script src="/js/components/VideoPlayer.js?v=6"></script>
+  <script src="/js/components/VideoPlayer.js?v=7"></script>
   <script src="/js/components/ChannelList.js?v=3"></script>
   <script src="/js/components/SourceManager.js?v=2"></script>
   <script src="/js/components/EpgGuide.js?v=2"></script>
@@ -1146,7 +1146,7 @@
   <script src="/js/pages/MoviesPage.js?v=4"></script>
   <script src="/js/pages/SeriesPage.js?v=1"></script>
   <script src="/js/pages/Settings.js?v=3"></script>
-  <script src="/js/pages/WatchPage.js?v=1"></script>
+  <script src="/js/pages/WatchPage.js?v=2"></script>
   <script src="/js/app.js?v=4"></script>
   <script>
     // Check for SSO token in URL
@@ -1192,7 +1192,10 @@
                     case "enter":
                     case "Enter":
                         currentElement.click(); // make active
-                        currentElement.focus(); // focus
+                        // Keep focus where the click put it (an opened menu
+                        // focuses its current option); only restore it when
+                        // the click left nothing focused.
+                        if (document.activeElement === document.body) currentElement.focus();
                         e.preventDefault();
                         break;
                     //default:
@@ -1263,7 +1266,16 @@
                     }, 100);
                 } else {
                     let nextElement = document.getElementById(nextElementId);
+                    // Skip targets that are hidden right now (the quality
+                    // button on single-stream channels) by following their
+                    // own link in the same direction.
+                    const direction = { ArrowDown: 'arrowdown', ArrowUp: 'arrowup', ArrowRight: 'arrowright', ArrowLeft: 'arrowleft' }[event.key];
+                    for (let hops = 0; direction && nextElement && nextElement.offsetParent === null && hops < 10; hops++) {
+                        const further = nextElement.dataset[direction];
+                        nextElement = further ? document.getElementById(further) : null;
+                    }
                     if (nextElement) {
+                        nextElementId = nextElement.id;
                         if (nextElementId === 'channel-list') {
                             const channelList = this.app.channelList;
                             if (channelList) {
