@@ -1074,22 +1074,29 @@ class VideoPlayer {
                 // Probe to get video codec for HEVC tag handling
                 let videoCodec = 'unknown';
                 let videoHeight = null;
+                let interlaced = false;
                 try {
                     const probeRes = await fetch(`/api/probe?url=${encodeURIComponent(streamUrl)}`);
                     const info = await probeRes.json();
                     videoCodec = info.video;
                     videoHeight = info.height;
+                    interlaced = !!info.interlaced;
                 } catch (e) { console.warn('Probe failed for force audio, assuming h264'); }
 
                 // Copy only works for codecs this device can decode (h264, HEVC
                 // where supported). Some live feeds switch to e.g. mpeg2
                 // placeholders - encode those, otherwise playback hangs.
-                const copyable = this.canCopyVideo(videoCodec, videoHeight);
+                // Interlaced video stalls the browser when copied (see probe.js).
+                const copyable = this.canCopyVideo(videoCodec, videoHeight) && !interlaced;
                 if (!copyable) {
-                    console.log(`[Player] Force Audio: video is ${videoCodec}, falling back to encode`);
+                    console.log(`[Player] Force Audio: video is ${videoCodec}${interlaced ? ' interlaced' : ''}, falling back to encode`);
                 }
 
-                const playlistUrl = await this.startTranscodeSession(streamUrl, { videoMode: copyable ? 'copy' : 'encode', videoCodec });
+                const playlistUrl = await this.startTranscodeSession(streamUrl, {
+                    videoMode: copyable ? 'copy' : 'encode',
+                    videoCodec,
+                    deinterlace: interlaced
+                });
                 this.currentUrl = playlistUrl;
 
                 console.log('[Player] Playing transcoded HLS stream:', playlistUrl);
