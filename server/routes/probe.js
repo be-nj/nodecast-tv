@@ -29,6 +29,24 @@ const BROWSER_AUDIO_CODECS = ['aac', 'mp3', 'opus', 'vorbis'];
 // "unknown" are not).
 const INTERLACED_FIELD_ORDERS = ['tt', 'bb', 'tb', 'bt'];
 
+// Dispatcharr channel URLs (/proxy/ts/stream/<uuid>) may be served by a
+// different provider stream on every request (failover, quality order), so
+// a cached probe of one says nothing about the next. Stream-hash URLs and
+// everything else name one fixed source.
+const DISPATCHARR_CHANNEL_URL = /\/proxy\/ts\/stream\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}(?:[/?]|$)/i;
+
+// Never cache results without a detected audio stream either: providers
+// serve a silent "stream offline" slate when the account connection limit
+// is hit, and caching that poisons every zap to the channel for minutes.
+function isCacheable(url, analysis) {
+    return analysis.audio !== 'unknown' && !DISPATCHARR_CHANNEL_URL.test(url);
+}
+
+function parseRate(value) {
+    const [num, den] = String(value || '').split('/').map(Number);
+    return den ? num / den : 0;
+}
+
 /**
  * Probe stream with ffprobe
  */
@@ -121,14 +139,20 @@ function analyzeProbeResult(probeResult, url) {
     // The frontend will still use "copy" mode if codecs are compatible.
     const isMkv = container.includes('matroska') || container.includes('webm') || url.endsWith('.mkv');
 
-    // Interlaced broadcasts (Kinowelt: 1080i, every field its own packet)
-    // break the browser player when the video is only copied: ffmpeg warns
-    // "Non-monotonic DTS" on every frame and playback stalls after a few
-    // seconds. They have to be deinterlaced and re-encoded.
+    // Interlaced video comes in two codings. Frame-coded (MBAFF, most 1080i
+    // channels) copies into HLS fine. Field-coded (PAFF, Kinowelt) puts every
+    // field in its own packet; copied, ffmpeg warns "Non-monotonic DTS" on
+    // every frame and the browser stalls after a few seconds, so it has to be
+    // deinterlaced and re-encoded. ffprobe gives PAFF away by reporting twice
+    // the average frame rate as r_frame_rate (Kinowelt: 50/1 vs 25/1; MBAFF
+    // shows 25/1 for both).
     const interlaced = INTERLACED_FIELD_ORDERS.includes(videoStream?.field_order);
+    const fieldRate = parseRate(videoStream?.r_frame_rate);
+    const frameRate = parseRate(videoStream?.avg_frame_rate);
+    const fieldCoded = interlaced && frameRate > 0 && Math.abs(fieldRate / frameRate - 2) < 0.1;
 
-    // 1. Incompatible audio/video OR MKV OR interlaced -> Transcode (or HLS Copy)
-    const needsTranscode = !audioOk || !videoOk || isMkv || interlaced;
+    // 1. Incompatible audio/video OR MKV OR field-coded -> Transcode (or HLS Copy)
+    const needsTranscode = !audioOk || !videoOk || isMkv || fieldCoded;
 
     // 2. Compatible audio/video but incompatible container (non-MKV) -> Remux (fMP4 pipe)
     const needsRemux = !needsTranscode && (!containerOk || isRawTs);
@@ -143,6 +167,7 @@ function analyzeProbeResult(probeResult, url) {
         audioChannels: audioStream?.channels || 0, // For Smart Audio Copy
         container: container,
         interlaced: interlaced,
+        fieldCoded: fieldCoded,
         compatible: compatible,
         needsRemux: needsRemux,
         needsTranscode: needsTranscode,
@@ -185,16 +210,12 @@ router.get('/', async (req, res) => {
         const probeResult = await probeStream(url, ffprobePath, ua);
         const analysis = analyzeProbeResult(probeResult, url);
 
-        // Cache result - but never cache results without a detected audio
-        // stream: providers serve a silent "stream offline" slate when the
-        // account connection limit is hit, and caching that poisons every
-        // zap to the channel for the next few minutes.
-        if (analysis.audio !== 'unknown') {
+        if (isCacheable(url, analysis)) {
             probeCache.set(cacheKey, { result: analysis, timestamp: Date.now() });
         }
 
         console.log(`[Probe] Result: video=${analysis.video}, audio=${analysis.audio}, ` +
-            `container=${analysis.container}, interlaced=${analysis.interlaced}, compatible=${analysis.compatible}, ` +
+            `container=${analysis.container}, interlaced=${analysis.interlaced}${analysis.fieldCoded ? ' (field-coded)' : ''}, compatible=${analysis.compatible}, ` +
             `needsRemux=${analysis.needsRemux}, needsTranscode=${analysis.needsTranscode}`);
 
         res.json(analysis);
@@ -216,3 +237,4 @@ router.get('/', async (req, res) => {
 
 module.exports = router;
 module.exports.analyzeProbeResult = analyzeProbeResult;
+module.exports.isCacheable = isCacheable;

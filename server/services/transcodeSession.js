@@ -234,20 +234,11 @@ class TranscodeSession extends EventEmitter {
         if (videoMode === 'copy') {
             args.push('-c:v', 'copy');
 
-            // Critical for MKV/MP4 -> TS copy: Convert bitstream from AVCC/HVCC to Annex B
-            // A live TS feed is Annex B already. There the filter only hurt:
-            // a probe that saw the wrong codec (HEVC for Sky Atlantic, h264
-            // in fact) picked the wrong filter and ffmpeg refused to start.
-            if (isLiveUrl(this.url)) {
-                // nothing to convert
-            } else if (this.options.videoCodec === 'hevc' || this.options.videoCodec === 'h265') {
-                args.push('-bsf:v', 'hevc_mp4toannexb');
-            } else if (this.options.videoCodec === 'h264' || this.options.videoCodec === 'avc') {
-                args.push('-bsf:v', 'h264_mp4toannexb');
-            } else {
-                // Fallback (e.g. unknown codec), try strict extraction
-                args.push('-bsf:v', 'dump_extra');
-            }
+            // No explicit Annex B filter: the MPEG-TS segment muxer inserts
+            // h264_mp4toannexb / hevc_mp4toannexb itself where the input
+            // (MP4, MKV) needs it, judged by the real stream. Picking it from
+            // the probed codec broke Sky Atlantic: a probe that saw HEVC for
+            // an h264 stream chose the HEVC filter and ffmpeg refused to start.
         } else {
             this.addVideoEncoderArgs(args, encoder);
         }
@@ -416,7 +407,7 @@ class TranscodeSession extends EventEmitter {
         const deinterlace = {
             nvenc: 'yadif_cuda=mode=send_field',
             vaapi: 'deinterlace_vaapi=rate=field',
-            qsv: 'vpp_qsv=deinterlace=2',
+            qsv: 'vpp_qsv=deinterlace=2:rate=field',
         }[encoder] || 'yadif=mode=send_field';
         return `${deinterlace},${scale}`;
     }
@@ -540,7 +531,8 @@ class TranscodeSession extends EventEmitter {
             '-preset', 'veryfast',     // Fast for real-time
             '-crf', String(crf),
             '-profile:v', 'high',
-            '-level', '4.1',
+            // 1080p50 from deinterlacing exceeds Level 4.1's macroblock rate
+            '-level', this.options.deinterlace ? '4.2' : '4.1',
             '-pix_fmt', 'yuv420p'      // Force 8-bit output for compatibility (fixes 10-bit input errors)
         );
     }

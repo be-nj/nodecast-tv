@@ -453,8 +453,9 @@ class WatchPage {
 
                     // Heuristic: If video is h264/compat, copy video. Usage: Audio fix. 
                     // BUT: If upscaling is enabled, we MUST encode.
-                    const videoMode = (info.video && info.video.includes('h264') && !settings.upscaleEnabled) ? 'copy' : 'encode';
-                    const statusText = videoMode === 'copy' ? 'Transcoding (Audio)' : (settings.upscaleEnabled ? 'Upscaling' : 'Transcoding (Video)');
+                    // Field-coded interlaced video stalls the browser when copied (see probe.js).
+                    const videoMode = (info.video && info.video.includes('h264') && !settings.upscaleEnabled && !info.fieldCoded) ? 'copy' : 'encode';
+                    const statusText = videoMode === 'copy' ? 'Transcoding (Audio)' : (settings.upscaleEnabled ? 'Upscaling' : (info.fieldCoded ? 'Transcoding (Deinterlace)' : 'Transcoding (Video)'));
                     const statusMode = settings.upscaleEnabled ? 'upscaling' : 'transcoding';
 
                     this.updateTranscodeStatus(statusMode, statusText);
@@ -463,7 +464,8 @@ class WatchPage {
                         seekOffset: this.resumeTime, // Ensure seekOffset is passed
                         videoCodec: info.video,
                         audioCodec: info.audio,
-                        audioChannels: info.audioChannels
+                        audioChannels: info.audioChannels,
+                        deinterlace: !!info.interlaced
                     });
                     this.playHls(playlistUrl);
                     this.setVolumeFromStorage();
@@ -511,9 +513,17 @@ class WatchPage {
             const statusMode = settings.upscaleEnabled ? 'upscaling' : 'transcoding';
             console.log(`[WatchPage] ${statusText} enabled. Starting session (encode)...`);
             this.updateTranscodeStatus(statusMode, statusText);
+            // The video is encoded anyway: deinterlace interlaced sources
+            let deinterlace = false;
+            try {
+                const ua = settings.userAgentPreset === 'custom' ? settings.userAgentCustom : settings.userAgentPreset;
+                const info = await (await fetch(`/api/probe?url=${encodeURIComponent(url)}&ua=${encodeURIComponent(ua || '')}`)).json();
+                deinterlace = !!info.interlaced;
+            } catch (e) { console.warn('[WatchPage] Probe failed, encoding without deinterlace'); }
             const playlistUrl = await this.startTranscodeSession(url, {
                 videoMode: 'encode',
-                seekOffset: this.resumeTime
+                seekOffset: this.resumeTime,
+                deinterlace
             });
             this.playHls(playlistUrl);
             this.setVolumeFromStorage();
@@ -526,26 +536,32 @@ class WatchPage {
 
             // Probe to get video codec for HEVC tag handling
             let videoCodec = 'unknown';
+            let interlaced = false;
+            let fieldCoded = false;
             try {
                 const ua = settings.userAgentPreset === 'custom' ? settings.userAgentCustom : settings.userAgentPreset;
                 const probeRes = await fetch(`/api/probe?url=${encodeURIComponent(url)}&ua=${encodeURIComponent(ua || '')}`);
                 const info = await probeRes.json();
                 videoCodec = info.video;
+                interlaced = !!info.interlaced;
+                fieldCoded = !!info.fieldCoded;
             } catch (e) { console.warn('Probe failed for force audio, assuming h264'); }
 
             // Copy only works for codecs the player can decode (h264/hevc).
             // Some live feeds switch to e.g. mpeg2 placeholders - encode those,
             // otherwise the copied stream is undecodable and playback hangs.
-            const copyable = videoCodec === 'unknown' ||
-                ['h264', 'avc', 'hevc', 'h265'].some(c => videoCodec.includes(c));
+            // Field-coded interlaced video stalls the browser when copied (see probe.js).
+            const copyable = !fieldCoded && (videoCodec === 'unknown' ||
+                ['h264', 'avc', 'hevc', 'h265'].some(c => videoCodec.includes(c)));
             if (!copyable) {
-                console.log(`[WatchPage] Force Audio: video is ${videoCodec}, falling back to encode`);
+                console.log(`[WatchPage] Force Audio: video is ${videoCodec}${fieldCoded ? ' field-coded' : ''}, falling back to encode`);
             }
 
             const playlistUrl = await this.startTranscodeSession(url, {
                 videoMode: copyable ? 'copy' : 'encode',
                 videoCodec,
-                seekOffset: this.resumeTime
+                seekOffset: this.resumeTime,
+                deinterlace: interlaced
             });
             this.playHls(playlistUrl);
             this.setVolumeFromStorage();
