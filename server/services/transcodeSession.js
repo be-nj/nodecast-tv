@@ -404,6 +404,19 @@ class TranscodeSession extends EventEmitter {
      * @param {number} height - Target height
      */
     buildScaleFilter(encoder, height) {
+        const scale = this.buildScaleOnly(encoder, height);
+        if (!this.options.deinterlace) return scale;
+        // One output frame per field (50p from 1080i25): smooth motion for
+        // sport, and the same rate the source shows on a TV.
+        const deinterlace = {
+            nvenc: 'yadif_cuda=mode=send_field',
+            vaapi: 'deinterlace_vaapi=rate=field',
+            qsv: 'vpp_qsv=deinterlace=2',
+        }[encoder] || 'yadif=mode=send_field';
+        return `${deinterlace},${scale}`;
+    }
+
+    buildScaleOnly(encoder, height) {
         const useUpscale = this.options.upscaleEnabled;
         const upscaleMethod = this.options.upscaleMethod || 'hardware';
 

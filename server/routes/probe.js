@@ -25,6 +25,10 @@ const CACHE_TTL = 5 * 60 * 1000; // 5 minutes (event channels can swap codecs, k
 const BROWSER_VIDEO_CODECS = ['h264', 'avc', 'avc1'];
 const BROWSER_AUDIO_CODECS = ['aac', 'mp3', 'opus', 'vorbis'];
 
+// ffprobe field_order values of interlaced video ("progressive" and
+// "unknown" are not).
+const INTERLACED_FIELD_ORDERS = ['tt', 'bb', 'tb', 'bt'];
+
 /**
  * Probe stream with ffprobe
  */
@@ -117,8 +121,14 @@ function analyzeProbeResult(probeResult, url) {
     // The frontend will still use "copy" mode if codecs are compatible.
     const isMkv = container.includes('matroska') || container.includes('webm') || url.endsWith('.mkv');
 
-    // 1. Incompatible audio/video OR MKV -> Transcode (or HLS Copy)
-    const needsTranscode = !audioOk || !videoOk || isMkv;
+    // Interlaced broadcasts (Kinowelt: 1080i, every field its own packet)
+    // break the browser player when the video is only copied: ffmpeg warns
+    // "Non-monotonic DTS" on every frame and playback stalls after a few
+    // seconds. They have to be deinterlaced and re-encoded.
+    const interlaced = INTERLACED_FIELD_ORDERS.includes(videoStream?.field_order);
+
+    // 1. Incompatible audio/video OR MKV OR interlaced -> Transcode (or HLS Copy)
+    const needsTranscode = !audioOk || !videoOk || isMkv || interlaced;
 
     // 2. Compatible audio/video but incompatible container (non-MKV) -> Remux (fMP4 pipe)
     const needsRemux = !needsTranscode && (!containerOk || isRawTs);
@@ -132,6 +142,7 @@ function analyzeProbeResult(probeResult, url) {
         height: videoStream?.height || 0,
         audioChannels: audioStream?.channels || 0, // For Smart Audio Copy
         container: container,
+        interlaced: interlaced,
         compatible: compatible,
         needsRemux: needsRemux,
         needsTranscode: needsTranscode,
@@ -183,7 +194,7 @@ router.get('/', async (req, res) => {
         }
 
         console.log(`[Probe] Result: video=${analysis.video}, audio=${analysis.audio}, ` +
-            `container=${analysis.container}, compatible=${analysis.compatible}, ` +
+            `container=${analysis.container}, interlaced=${analysis.interlaced}, compatible=${analysis.compatible}, ` +
             `needsRemux=${analysis.needsRemux}, needsTranscode=${analysis.needsTranscode}`);
 
         res.json(analysis);
@@ -204,3 +215,4 @@ router.get('/', async (req, res) => {
 });
 
 module.exports = router;
+module.exports.analyzeProbeResult = analyzeProbeResult;

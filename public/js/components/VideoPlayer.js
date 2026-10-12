@@ -953,8 +953,9 @@ class VideoPlayer {
 
                         // Heuristic: If video is h264, it's likely compatible, so only copy video (audio transcode only)
                         // BUT: If upscaling is enabled, we MUST encode.
-                        const videoMode = (info.video && this.canCopyVideo(info.video, info.height) && !this.settings.upscaleEnabled) ? 'copy' : 'encode';
-                        const statusText = videoMode === 'copy' ? 'Transcoding (Audio)' : (this.settings.upscaleEnabled ? 'Upscaling' : 'Transcoding (Video)');
+                        // Interlaced video cannot be copied: the browser stalls on it.
+                        const videoMode = (info.video && this.canCopyVideo(info.video, info.height) && !this.settings.upscaleEnabled && !info.interlaced) ? 'copy' : 'encode';
+                        const statusText = videoMode === 'copy' ? 'Transcoding (Audio)' : (this.settings.upscaleEnabled ? 'Upscaling' : (info.interlaced ? 'Transcoding (Deinterlace)' : 'Transcoding (Video)'));
                         const statusMode = this.settings.upscaleEnabled ? 'upscaling' : 'transcoding';
 
                         this.updateTranscodeStatus(statusMode, statusText);
@@ -962,7 +963,8 @@ class VideoPlayer {
                             videoMode,
                             videoCodec: info.video,
                             audioCodec: info.audio,
-                            audioChannels: info.audioChannels
+                            audioChannels: info.audioChannels,
+                            deinterlace: !!info.interlaced
                         });
                         this.currentUrl = playlistUrl; // Update currentUrl for HLS reload
 
