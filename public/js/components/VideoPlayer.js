@@ -1441,7 +1441,49 @@ class VideoPlayer {
             this.updateQualityButton();
             return;
         }
+        const next = hash ? (this.channelVariants || []).find(v => v.hash === hash) : (this.channelVariants || [])[0];
+        this.startSwitchVeil(next ? StreamVariants.qualityTag(next) : 'Auto');
         this.play(this.currentChannel, this.channelStreamUrl);
+    }
+
+    /**
+     * Bridges a quality switch: the last frame stays on screen and blurs
+     * while the new stream connects, then fades out once it plays.
+     */
+    startSwitchVeil(label) {
+        this.endSwitchVeil(true);
+        const veil = document.createElement('div');
+        veil.className = 'switch-veil';
+        const canvas = document.createElement('canvas');
+        try {
+            canvas.width = this.video.videoWidth || 1280;
+            canvas.height = this.video.videoHeight || 720;
+            canvas.getContext('2d').drawImage(this.video, 0, 0, canvas.width, canvas.height);
+        } catch (e) { /* no frame yet: the veil is just dark */ }
+        const tag = document.createElement('div');
+        tag.className = 'switch-veil-label';
+        tag.textContent = label;
+        veil.append(canvas, tag);
+        // Right after the video, so the controls stay on top of it
+        this.video.after(veil);
+        requestAnimationFrame(() => requestAnimationFrame(() => veil.classList.add('blurred')));
+        this.switchVeil = veil;
+        const done = () => this.endSwitchVeil();
+        this.video.addEventListener('playing', done, { once: true });
+        this.switchVeilTimer = setTimeout(done, 10000);
+    }
+
+    endSwitchVeil(immediate = false) {
+        const veil = this.switchVeil;
+        if (!veil) return;
+        this.switchVeil = null;
+        clearTimeout(this.switchVeilTimer);
+        if (immediate) {
+            veil.remove();
+            return;
+        }
+        veil.classList.add('fading');
+        setTimeout(() => veil.remove(), 600);
     }
 
     async updateTranscodeStatus(mode, text) {
