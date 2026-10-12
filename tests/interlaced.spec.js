@@ -32,3 +32,11 @@ test('deinterlacing runs before scaling, per encoder', () => {
     const plain = new TranscodeSession('http://x/proxy/ts/stream/y', {});
     assert.strictEqual(plain.buildScaleFilter('vaapi', 1080), 'scale_vaapi=w=-2:h=1080:format=nv12');
 });
+
+test('live TS copy needs no Annex B filter, whatever the probe said', () => {
+    const live = new TranscodeSession('http://dispatcharr:9191/proxy/ts/stream/abc', { videoMode: 'copy', videoCodec: 'hevc', userAgent: 'x' });
+    const args = live.buildFFmpegArgs();
+    assert.ok(!args.includes('-bsf:v'), args.join(' '));
+    const file = new TranscodeSession('http://host/movie.mkv', { videoMode: 'copy', videoCodec: 'hevc', userAgent: 'x' });
+    assert.ok(file.buildFFmpegArgs().includes('hevc_mp4toannexb'));
+});

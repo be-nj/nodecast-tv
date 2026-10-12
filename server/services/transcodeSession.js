@@ -235,7 +235,12 @@ class TranscodeSession extends EventEmitter {
             args.push('-c:v', 'copy');
 
             // Critical for MKV/MP4 -> TS copy: Convert bitstream from AVCC/HVCC to Annex B
-            if (this.options.videoCodec === 'hevc' || this.options.videoCodec === 'h265') {
+            // A live TS feed is Annex B already. There the filter only hurt:
+            // a probe that saw the wrong codec (HEVC for Sky Atlantic, h264
+            // in fact) picked the wrong filter and ffmpeg refused to start.
+            if (isLiveUrl(this.url)) {
+                // nothing to convert
+            } else if (this.options.videoCodec === 'hevc' || this.options.videoCodec === 'h265') {
                 args.push('-bsf:v', 'hevc_mp4toannexb');
             } else if (this.options.videoCodec === 'h264' || this.options.videoCodec === 'avc') {
                 args.push('-bsf:v', 'h264_mp4toannexb');
