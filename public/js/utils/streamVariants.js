@@ -90,7 +90,41 @@
         return scored.map(s => s.v);
     }
 
-    const api = { detectCaps, loadPrefs, savePrefs, hevcAllowed, rankVariants, heightFromName, PREF_HEVC, PREF_MAX_HEIGHT };
+    const PREF_CHOICE = 'nodecast.variant.'; // + channel key -> stream hash
+
+    /** "UHD", "FHD", "HD" or "SD" for the quality menu. */
+    function qualityTag(v) {
+        const last = String(v.name || '').trim().split(/\s+/).pop().toUpperCase();
+        if (['UHD', '4K', 'FHD', 'HD', 'SD'].includes(last)) return last === '4K' ? 'UHD' : last;
+        const h = v.height || 0;
+        return h >= 2160 ? 'UHD' : h >= 1080 ? 'FHD' : h >= 720 ? 'HD' : h > 0 ? 'SD' : (v.name || '?');
+    }
+
+    /** The stream the viewer fixed for a channel, or null for automatic. */
+    function loadChoice(storage, channelKey) {
+        try { return (storage && channelKey && storage.getItem(PREF_CHOICE + channelKey)) || null; } catch (e) { return null; }
+    }
+
+    function saveChoice(storage, channelKey, hash) {
+        try {
+            if (hash) storage.setItem(PREF_CHOICE + channelKey, hash);
+            else storage.removeItem(PREF_CHOICE + channelKey);
+        } catch (e) { /* private mode - choice lasts until reload */ }
+    }
+
+    /**
+     * The ranked list with the viewer's pick first. The rest keep their
+     * order, so a pick that fails still falls back to the best other one.
+     */
+    function applyChoice(ranked, hash) {
+        const chosen = hash && ranked.find(v => v.hash === hash);
+        return chosen ? [chosen, ...ranked.filter(v => v !== chosen)] : ranked;
+    }
+
+    const api = {
+        detectCaps, loadPrefs, savePrefs, hevcAllowed, rankVariants, heightFromName,
+        qualityTag, loadChoice, saveChoice, applyChoice, PREF_HEVC, PREF_MAX_HEIGHT,
+    };
     if (typeof module !== 'undefined' && module.exports) {
         module.exports = api;
     } else {

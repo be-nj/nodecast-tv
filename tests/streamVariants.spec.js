@@ -66,3 +66,28 @@ test('detectCaps asks MediaSource for HEVC 1080p and 4K', () => {
     assert.deepStrictEqual(SV.detectCaps(win), { hevc: true, hevc4k: false });
     assert.deepStrictEqual(SV.detectCaps({}), { hevc: false, hevc4k: false });
 });
+
+test('quality tags come from the provider name, else the height', () => {
+    assert.strictEqual(SV.qualityTag({ name: 'SKY ATLANTIC FHD' }), 'FHD');
+    assert.strictEqual(SV.qualityTag({ name: 'SKY ATLANTIC HD' }), 'HD');
+    assert.strictEqual(SV.qualityTag({ name: 'SPORT 4K' }), 'UHD');
+    assert.strictEqual(SV.qualityTag({ name: 'Kinowelt', height: 1080 }), 'FHD');
+});
+
+test('the viewer pick goes first, the rest keep their order', () => {
+    const ranked = [{ hash: 'fhd' }, { hash: 'hd' }, { hash: 'sd' }];
+    assert.deepStrictEqual(SV.applyChoice(ranked, 'hd').map(v => v.hash), ['hd', 'fhd', 'sd']);
+    assert.deepStrictEqual(SV.applyChoice(ranked, null).map(v => v.hash), ['fhd', 'hd', 'sd']);
+    // A pick the channel no longer offers falls back to automatic
+    assert.deepStrictEqual(SV.applyChoice(ranked, 'gone').map(v => v.hash), ['fhd', 'hd', 'sd']);
+});
+
+test('the pick is stored per channel and can be cleared', () => {
+    const store = new Map();
+    const storage = { getItem: k => store.get(k) ?? null, setItem: (k, v) => store.set(k, v), removeItem: k => store.delete(k) };
+    SV.saveChoice(storage, 'chan-a', 'hd');
+    assert.strictEqual(SV.loadChoice(storage, 'chan-a'), 'hd');
+    assert.strictEqual(SV.loadChoice(storage, 'chan-b'), null);
+    SV.saveChoice(storage, 'chan-a', null);
+    assert.strictEqual(SV.loadChoice(storage, 'chan-a'), null);
+});

@@ -341,6 +341,23 @@ class VideoPlayer {
             }
         });
 
+        // Quality: pick one of the channel's streams (FHD/HD/SD/UHD)
+        this.qualityWrapper = document.getElementById('player-quality-wrapper');
+        this.qualityBtn = document.getElementById('player-quality-btn');
+        this.qualityMenu = document.getElementById('player-quality-menu');
+        this.qualityList = document.getElementById('player-quality-list');
+        this.qualityLabel = document.getElementById('player-quality-label');
+        this.qualityBtn?.addEventListener('click', (e) => {
+            e.stopPropagation();
+            this.toggleQualityMenu();
+        });
+        document.addEventListener('click', (e) => {
+            if (this.qualityMenu && !this.qualityMenu.classList.contains('hidden') &&
+                !this.qualityMenu.contains(e.target) && !this.qualityBtn.contains(e.target)) {
+                this.qualityMenu.classList.add('hidden');
+            }
+        });
+
         // Fullscreen
         btnFullscreen?.addEventListener('click', (e) => {
             e.stopPropagation();
@@ -902,16 +919,26 @@ class VideoPlayer {
             // with the best one this device can play without video transcoding
             if (options.variantQueue) {
                 this.variantQueue = options.variantQueue;
+                this.playingVariant = options.variant || null;
             } else {
-                const ranked = await this.getRankedVariants(streamUrl);
+                // The channel's own URL: the quality menu replays from it
+                this.channelStreamUrl = streamUrl;
+                this.channelVariants = [];
+                this.playingVariant = null;
+                this.updateQualityButton();
+                const auto = await this.getRankedVariants(streamUrl);
                 if (playId !== this.playSeq) return; // zapped away meanwhile
+                const ranked = window.StreamVariants ? StreamVariants.applyChoice(auto, this.variantChoice()) : auto;
+                this.channelVariants = auto;
                 this.variantQueue = ranked.slice(1);
                 if (ranked.length > 0) {
                     streamUrl = ranked[0].url;
                     this.currentUrl = streamUrl;
+                    this.playingVariant = ranked[0];
                     console.log(`[Player] Variant: ${ranked[0].name} (${ranked[0].codec || '?'} ${ranked[0].height || '?'}p)`);
                 }
             }
+            this.updateQualityButton();
 
             // CHECK: Auto Transcode (Smart) - probe first, then decide
             if (this.settings.autoTranscode) {
@@ -1343,8 +1370,78 @@ class VideoPlayer {
         if (!this.variantQueue || this.variantQueue.length === 0 || !this.currentChannel) return false;
         const [next, ...rest] = this.variantQueue;
         console.log(`[Player] Stream failed, trying variant ${next.name}`);
-        this.play(this.currentChannel, next.url, { variantQueue: rest });
+        this.play(this.currentChannel, next.url, { variantQueue: rest, variant: next });
         return true;
+    }
+
+    /** Key the viewer's quality pick is stored under: the channel's stream id. */
+    variantChoiceKey() {
+        const url = this.channelStreamUrl || '';
+        return url.split('/proxy/ts/stream/')[1] || null;
+    }
+
+    variantChoice() {
+        if (!window.StreamVariants) return null;
+        return StreamVariants.loadChoice(localStorage, this.variantChoiceKey());
+    }
+
+    /** Shows the quality button for channels with several streams. */
+    updateQualityButton() {
+        if (!this.qualityWrapper) return;
+        const variants = this.channelVariants || [];
+        this.qualityWrapper.classList.toggle('hidden', variants.length < 2);
+        if (variants.length < 2) {
+            this.qualityMenu?.classList.add('hidden');
+            return;
+        }
+        const tag = this.playingVariant ? StreamVariants.qualityTag(this.playingVariant) : '–';
+        this.qualityLabel.textContent = this.variantChoice() ? tag : `${tag} (Auto)`;
+    }
+
+    toggleQualityMenu() {
+        if (!this.qualityMenu) return;
+        const opening = this.qualityMenu.classList.contains('hidden');
+        this.qualityMenu.classList.toggle('hidden', !opening);
+        if (!opening) return;
+        this.closeCaptionsMenu();
+        const choice = this.variantChoice();
+        const variants = this.channelVariants || [];
+        // The provider names some streams alike (two "UHD"): number them.
+        const label = (v) => {
+            const tag = StreamVariants.qualityTag(v);
+            const same = variants.filter(o => StreamVariants.qualityTag(o) === tag);
+            const detail = [v.codec === 'hevc' ? 'HEVC' : v.codec === 'h264' ? 'H.264' : null, v.height ? `${v.height}p` : null]
+                .filter(Boolean).join(' · ');
+            return `${tag}${same.length > 1 ? ` · ${same.indexOf(v) + 1}` : ''}${detail ? ` <small>${detail}</small>` : ''}`;
+        };
+        const options = [{ hash: null, html: `Auto${variants[0] ? ` <small>${StreamVariants.qualityTag(variants[0])}</small>` : ''}` }]
+            .concat(variants.map(v => ({ hash: v.hash, html: label(v) })));
+        this.qualityList.innerHTML = '';
+        options.forEach(opt => {
+            const btn = document.createElement('button');
+            const active = (opt.hash || null) === (choice || null);
+            btn.className = 'captions-option' + (active ? ' active' : '');
+            btn.innerHTML = opt.html; // .active draws the check mark
+            btn.onclick = (e) => {
+                e.stopPropagation();
+                this.selectVariant(opt.hash);
+            };
+            this.qualityList.appendChild(btn);
+        });
+        this.qualityList.querySelector('.active')?.focus();
+    }
+
+    /** Fixes this channel to one stream (or back to automatic) and replays it. */
+    selectVariant(hash) {
+        this.qualityMenu?.classList.add('hidden');
+        const key = this.variantChoiceKey();
+        if (!key || !this.currentChannel) return;
+        StreamVariants.saveChoice(localStorage, key, hash);
+        if (hash && this.playingVariant?.hash === hash) {
+            this.updateQualityButton();
+            return;
+        }
+        this.play(this.currentChannel, this.channelStreamUrl);
     }
 
     async updateTranscodeStatus(mode, text) {
