@@ -7,6 +7,10 @@ class WatchPage {
     constructor(app) {
         this.app = app;
 
+        // A closed tab never reaches stopTranscodeSession(), and the server would
+        // keep pulling the live stream until its idle timeout.
+        window.addEventListener('pagehide', () => this.stopTranscodeSession());
+
         // Video elements
         this.video = document.getElementById('watch-video');
         this.overlay = document.getElementById('watch-overlay');
@@ -360,7 +364,7 @@ class WatchPage {
             console.log('[WatchPage] Stopping transcode session:', this.currentSessionId);
             try {
                 // Fire and forget cleanup
-                fetch(`/api/transcode/${this.currentSessionId}`, { method: 'DELETE' });
+                fetch(`/api/transcode/${this.currentSessionId}`, { method: 'DELETE', keepalive: true });
             } catch (err) {
                 console.error('Failed to stop session:', err);
             }

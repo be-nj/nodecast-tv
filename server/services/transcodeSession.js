@@ -30,9 +30,10 @@ const SESSION_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes idle timeout (VOD: allo
 // Live streams hold a provider connection upstream (e.g. Dispatcharr accounts
 // with a 2-stream limit), so abandoned live sessions must be reaped quickly
 // or channel zapping exhausts the provider slots with orphaned ffmpeg pulls.
-const LIVE_SESSION_TIMEOUT_MS = 90 * 1000;
+// hls.js refreshes a live playlist every segment (2 s), even while paused.
+const LIVE_SESSION_TIMEOUT_MS = 30 * 1000;
 const SEGMENT_DURATION = 2; // seconds per HLS segment (shorter = faster startup on channel zap)
-const CLEANUP_INTERVAL_MS = 30 * 1000; // Check every 30 seconds
+const CLEANUP_INTERVAL_MS = 10 * 1000; // Check every 10 seconds
 
 /**
  * Live TS streams (Dispatcharr proxy channels, raw .ts feeds) vs VOD files

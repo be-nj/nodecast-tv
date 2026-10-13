@@ -12,6 +12,10 @@ class VideoPlayer {
     constructor() {
         this.video = document.getElementById('video-player');
 
+        // A closed tab never reaches stopTranscodeSession(), and the server would
+        // keep pulling the live stream until its idle timeout.
+        window.addEventListener('pagehide', () => this.stopTranscodeSession());
+
         // iOS: ensure inline playback (not fullscreen by default)
         if (this.video) {
             this.video.setAttribute('playsinline', '');
@@ -888,7 +892,7 @@ class VideoPlayer {
             console.log('[Player] Stopping transcode session:', this.currentSessionId);
             try {
                 // Fire and forget cleanup
-                fetch(`/api/transcode/${this.currentSessionId}`, { method: 'DELETE' });
+                fetch(`/api/transcode/${this.currentSessionId}`, { method: 'DELETE', keepalive: true });
             } catch (err) {
                 console.error('Failed to stop session:', err);
             }
