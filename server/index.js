@@ -27,6 +27,7 @@ app.use(session({
 app.use(passport.initialize());
 app.use(passport.session());
 
+app.get(['/login', '/login.html'], require('./services/ssoAutoLogin').middleware);
 app.use(express.static(path.join(__dirname, '..', 'public')));
 
 // FFMPEG Configuration (optional - for transcoding support)
